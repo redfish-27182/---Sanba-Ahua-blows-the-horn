@@ -1,0 +1,44 @@
+# 🪷 三八阿花吹喇叭 
+
+> **一個結合 2D 像素風 RPG、虛實連動與雲端 OTA 的智慧花盆/互動裝置大廳。**
+
+---
+
+## 📖 專案簡介 (Overview)
+
+「三八阿花吹喇叭」是一個將實體硬體與電玩世界結合的互動專案。透過 ESP32 與彩色 TFT 顯示屏，將遠端的訊息、動態天氣與互動事件，化為懷舊像素風的遊戲場景。
+
+* **無線空中升級 (HTTP OTA)**：支援無縫遠端韌體更新，並具備動態像素風進度條。
+* **復古遊戲視界**：搭載 `TFT_eSPI` 繪製 320x240 懷舊點陣畫面。
+* **虛實地圖串聯**：包含十字路口、大海木棧道信箱與許願池等場景設計。
+
+---
+
+## 🛠️ 硬體與技術棧 (Tech Stack)
+
+### Hardware
+* **主控板**：ESP32 (ESP32-2432S028 / CYD 小黃板)
+* **顯示器**：2.8 吋 TFT 液晶螢幕 (320x240, SPI 介面)
+
+### Software & Libraries
+* **開發環境**：VS Code + PlatformIO
+* **核心庫**：
+  * `TFT_eSPI` - 螢幕驅動與圖形繪製
+  * `HTTPUpdate.h` & `HTTPClient.h` - HTTP OTA 線上升級
+  * `WiFi.h` - 無線網路連線管理
+
+---
+
+## 🚀 最新功能亮點 (Latest Features)
+
+### 📡 HTTP OTA 無線升級與動態進度條
+* 支援透過區域網路 / 雲端 HTTP 伺服器下載 `.bin` 韌體。
+* **即時下載回呼 (Progress Callback)**：下載過程中螢幕不凍結，即時顯示下載百分比與像素風格綠色進度條。
+
+---
+
+## ⚙️ 開發與燒錄步驟 (Setup & Installation)
+
+1. **複製專案 (Clone Repository)**
+   ```bash
+   git clone [https://github.com/redfish-27182/---Sanba-Ahua-blows-the-horn.git](https://github.com/redfish-27182/---Sanba-Ahua-blows-the-horn.git)
