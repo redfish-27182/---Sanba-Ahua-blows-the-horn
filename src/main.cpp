@@ -1,59 +1,76 @@
 #include <Arduino.h>
-#include <WiFi.h>
 #include <TFT_eSPI.h>
-
-#include "FastAPIClient.h"
-#include "GitHubOTA.h"
+#include <WiFiManager.h>
 
 #define TFT_BL 21
-const char* CURRENT_VERSION = "v0.0.0";
 
-const char* ssid = "michael";
-const char* password = "0932749747";
-
-// 1. 建立普通物件
 TFT_eSPI tft = TFT_eSPI();
 
-// 2. 直接傳入普通變數，完全不用指標！
-FastAPIClient apiServer("http://192.168.0.101:8000"); // 填入你的 FastAPI 位址
-GitHubOTA otaEngine(tft);                              // 🎯 直接把 tft 傳進去！
+void initScreen() {
+    pinMode(TFT_BL, OUTPUT);
+    digitalWrite(TFT_BL, HIGH);
+
+    tft.init();
+    tft.setRotation(1); // 橫屏 320x240
+}
 
 void setup() {
     Serial.begin(115200);
+    delay(500);
 
-    // 硬體初始化
-    pinMode(TFT_BL, OUTPUT);
-    digitalWrite(TFT_BL, HIGH);
-    tft.init();
-    tft.setRotation(1);
-    tft.fillScreen(TFT_BLACK);
+    initScreen();
 
-    // 連接 Wi-Fi
-    WiFi.begin(ssid, password);
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
-    }
-    Serial.println("\n✅ Wi-Fi 已連線！");
+    // 繪製初始背景 (深藍色)
+    tft.fillScreen(TFT_NAVY);
 
-    // 步驟 1：查詢版本
-    UpdateInfo info;
-    if (apiServer.checkUpdate(CURRENT_VERSION, info)) {
-        Serial.printf("📢 伺服器訊息: %s\n", info.message.c_str());
+    tft.setTextColor(TFT_YELLOW, TFT_NAVY);
+    tft.drawString("ESP32 ARCADE SYSTEM", 10, 15, 4); // 使用 Font 4 大字體
 
-        // 步驟 2：執行 OTA 升級
-        if (info.has_update) {
-            Serial.println("✨ 發現新版本，啟動 OTA 升級流程...");
-            otaEngine.startOTA(info.download_url);
-        } else {
-            Serial.println("✅ 已是最新版本。");
-            tft.setTextColor(TFT_GREEN, TFT_BLACK);
-            tft.setTextDatum(MC_DATUM);
-            tft.drawString("SYSTEM UP TO DATE", 160, 120, 4);
-        }
+    tft.setTextColor(TFT_WHITE, TFT_NAVY);
+    tft.drawString("Connecting WiFi...", 10, 60, 2);
+
+    // 🌐 啟動 WiFiManager
+    WiFiManager wm;
+    wm.setConfigPortalTimeout(180);
+
+    bool res = wm.autoConnect("ESP32-Arcade-Setup");
+
+    // 連線完畢後重置螢幕刷頁
+    initScreen();
+
+    if (!res) {
+        tft.fillScreen(TFT_RED);
+        tft.setTextColor(TFT_WHITE, TFT_RED);
+        tft.drawString("WiFi Connection Failed!", 10, 100, 4);
+    } else {
+        // 連線成功！畫出深綠色底面板
+        tft.fillScreen(TFT_DARKGREEN);
+
+        // 標題
+        tft.setTextColor(TFT_YELLOW, TFT_DARKGREEN);
+        tft.drawString("SYSTEM ONLINE", 10, 15, 4);
+
+        // 畫一條像素風格分隔線
+        tft.drawFastHLine(10, 50, 300, TFT_WHITE);
+
+        // 顯示 SSID
+        tft.setTextColor(TFT_WHITE, TFT_DARKGREEN);
+        tft.drawString("SSID :", 10, 70, 2);
+        tft.setTextColor(TFT_GREENYELLOW, TFT_DARKGREEN);
+        tft.drawString(WiFi.SSID(), 80, 70, 2);
+
+        // 顯示 IP
+        tft.setTextColor(TFT_WHITE, TFT_DARKGREEN);
+        tft.drawString("IP   :", 10, 100, 2);
+        tft.setTextColor(TFT_GREENYELLOW, TFT_DARKGREEN);
+        tft.drawString(WiFi.localIP().toString(), 80, 100, 2);
+
+        // 底部提示
+        tft.setTextColor(TFT_ORANGE, TFT_DARKGREEN);
+        tft.drawString("Ready for next module...", 10, 180, 2);
     }
 }
 
 void loop() {
-    delay(1000);
+    // 輕量主迴圈，完全無負擔
 }
