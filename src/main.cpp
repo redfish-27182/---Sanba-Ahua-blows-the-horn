@@ -1,102 +1,152 @@
 #include <Arduino.h>
 #include <WiFi.h>
-#include <WiFiClientSecure.h>
 #include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include <HTTPUpdate.h>
+#include <ArduinoJson.h>
 #include <TFT_eSPI.h>
 
-// 初始化 TFT 螢幕物件
+// ---------------- HARDWARE & CONSTANTS ----------------
+#define TFT_BL 21               // 小黃板 LCD 背光腳位
+const char* CURRENT_VERSION = "v0.0.0"; // ESP32 目前的版本 (更改此版本號測試 API 邏輯)
+const char* ssid = "michael";
+const char* password = "0932749747";
+
+// FastAPI 伺服器網址 (請換成你電腦的區域 IP)
+// 範例：http://192.168.0.100:8000/check_update
+const String server_api_url = "http://192.168.0.101:8000/check_update";
+
 TFT_eSPI tft = TFT_eSPI();
 
-// ==================== 🛠️ 請在此處修改連線設定 ====================
-const char* ssid = "michael"; 
-const char* password = "0932749747"; 
-const String update_url = "https://github.com/redfish-27182/---Sanba-Ahua-blows-the-horn/releases/download/v0.1.0-ota-test/update_test.bin";
-// ==================================================================
-
-// 🎨 OTA 下載進度條回呼函式 (即時更新 320x240 TFT 螢幕畫面)
-void ota_progress_callback(int current_bytes, int total_bytes) {
-    if (total_bytes <= 0) return;
-
-    int percentage = (current_bytes * 100) / total_bytes;
-    Serial.printf("➔ [GitHub OTA 進度] %d%%\n", percentage);
-
-    // 1. 清除舊的百分比文字區域 (X:80, Y:130, W:160, H:40)
-    tft.fillRect(80, 130, 160, 40, TFT_BLACK);
-    tft.setTextColor(TFT_YELLOW);
-    tft.drawCentreString(String(percentage) + "%", 160, 135, 4);
-
-    // 2. 繪製進度條外框與填充
-    tft.drawRect(38, 178, 244, 24, TFT_WHITE); // 框線外框
-    int bar_width = (240 * percentage) / 100;
-    tft.fillRect(40, 180, bar_width, 20, TFT_GREEN); // 綠色進度條填滿
+// ---------------- UI & PROGRESS BAR ----------------
+void draw_ota_ui(int progress) {
+    tft.fillRect(40, 140, 240, 20, TFT_BLACK);
+    tft.drawRect(38, 138, 244, 24, TFT_WHITE);
+    
+    int fillWidth = map(progress, 0, 100, 0, 240);
+    tft.fillRect(40, 140, fillWidth, 20, TFT_GREEN);
+    
+    tft.fillRect(100, 175, 120, 30, TFT_BLACK);
+    tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+    tft.setTextDatum(MC_DATUM);
+    tft.drawString(String(progress) + "%", 160, 190, 4);
 }
 
+void ota_progress_callback(int current, int total) {
+    static int last_percent = -1;
+    int percent = (current * 100) / total;
+    if (percent != last_percent) {
+        last_percent = percent;
+        Serial.printf("📥 OTA 下載進度: %d%%\n", percent);
+        draw_ota_ui(percent);
+    }
+}
+
+// ---------------- HTTPS OTA DOWNLOAD ----------------
+void perform_ota(String download_url) {
+    Serial.println("🚀 開始向 GitHub 請求 OTA 下載...");
+    
+    tft.fillScreen(TFT_BLACK);
+    tft.setTextColor(TFT_CYAN, TFT_BLACK);
+    tft.setTextDatum(TC_DATUM);
+    tft.drawString("OTA UPDATING...", 160, 60, 4);
+    draw_ota_ui(0);
+
+    WiFiClientSecure client;
+    client.setInsecure(); // 忽略 GitHub 的 SSL 憑證驗證
+
+    httpUpdate.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS); // 跟隨 302 轉向
+    httpUpdate.onProgress(ota_progress_callback);
+    httpUpdate.rebootOnUpdate(true);
+
+    t_httpUpdate_return ret = httpUpdate.update(client, download_url);
+
+    if (ret == HTTP_UPDATE_FAILED) {
+        Serial.printf("❌ OTA 下載失敗 (%d): %s\n", httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
+        tft.setTextColor(TFT_RED, TFT_BLACK);
+        tft.drawString("OTA FAILED!", 160, 100, 4);
+    }
+}
+
+// ---------------- HTTP GET CHECK UPDATE ----------------
+void check_for_updates() {
+    if (WiFi.status() != WL_CONNECTED) return;
+
+    HTTPClient http;
+    // 組合 GET 網址帶上版本號參數: /check_update?current_version=v0.0.0
+    String full_url = server_api_url + "?current_version=" + CURRENT_VERSION;
+    
+    Serial.print("🔍 正在向 FastAPI 查詢更新: ");
+    Serial.println(full_url);
+
+    http.begin(full_url);
+    int httpCode = http.GET(); // 發送 GET 請求
+
+    if (httpCode == HTTP_CODE_OK) {
+        String payload = http.getString();
+        Serial.println("📄 收到 FastAPI 回應:");
+        Serial.println(payload);
+
+        // 解析 JSON
+        StaticJsonDocument<512> doc;
+        DeserializationError error = deserializeJson(doc, payload);
+
+        if (!error) {
+            bool has_update = doc["has_update"];
+            const char* latest_version = doc["latest_version"];
+            const char* download_url = doc["download_url"];
+            const char* message = doc["message"];
+
+            Serial.printf("📢 訊息: %s\n", message);
+
+            if (has_update) {
+                Serial.printf("✨ 發現新版本 %s！準備啟動 OTA...\n", latest_version);
+                perform_ota(String(download_url));
+            } else {
+                Serial.println("✅ 目前為最新版，跳過 OTA，進入主程式。");
+                tft.setTextColor(TFT_GREEN, TFT_BLACK);
+                tft.drawString("SYSTEM UP TO DATE", 160, 120, 4);
+            }
+        } else {
+            Serial.print("❌ JSON 解析失敗: ");
+            Serial.println(error.c_str());
+        }
+    } else {
+        Serial.printf("❌ 查詢 API 失敗，HTTP 代碼: %d\n", httpCode);
+    }
+
+    http.end();
+}
+
+// ---------------- SETUP & LOOP ----------------
 void setup() {
     Serial.begin(115200);
-    delay(1000);
 
-    // 💡 點亮小黃板螢幕背光 (GPIO 21)
-    pinMode(21, OUTPUT);
-    digitalWrite(21, HIGH);
-
-    // 螢幕初始化與方向設定
+    // 初始化 TFT 螢幕與背光
+    pinMode(TFT_BL, OUTPUT);
+    digitalWrite(TFT_BL, HIGH);
     tft.init();
-    tft.setRotation(1); // 橫屏 320x240
+    tft.setRotation(1);
     tft.fillScreen(TFT_BLACK);
-
-    // 顯示系統主標題
-    tft.setTextColor(TFT_CYAN);
-    tft.drawCentreString("SANBA AHUA OTA SYSTEM", 160, 20, 4);
     
-    // 1. 開始連接 Wi-Fi
-    Serial.println("正在連線至 Wi-Fi...");
-    tft.setTextColor(TFT_WHITE);
-    tft.drawCentreString("Connecting to WiFi...", 160, 70, 2);
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.setTextDatum(MC_DATUM);
+    tft.drawString("Connecting Wi-Fi...", 160, 120, 4);
 
+    // 連接 Wi-Fi
     WiFi.begin(ssid, password);
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
         Serial.print(".");
     }
+    Serial.println("\n✅ Wi-Fi 已連線！");
+    tft.fillScreen(TFT_BLACK);
 
-    Serial.println("\n✨ Wi-Fi 連線成功！");
-    tft.fillRect(0, 65, 320, 30, TFT_BLACK); // 清除舊訊息
-    tft.setTextColor(TFT_GREEN);
-    tft.drawCentreString("WiFi Connected!", 160, 70, 2);
-
-    // 2. 準備發起 GitHub HTTPS OTA 下載
-    tft.setTextColor(TFT_ORANGE);
-    tft.drawCentreString("Fetching update from GitHub...", 160, 105, 2);
-
-    // 使用 WiFiClientSecure 處理 GitHub 的 HTTPS 密碼學協定
-    WiFiClientSecure client;
-    client.setInsecure(); // 跳過 SSL 憑證驗證 (嵌入式系統標準省資源做法)
-
-    // 🎯 關鍵設定：允許 HTTPUpdate 自動跟隨 GitHub 的 302 重轉向 (Redirect)
-    httpUpdate.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
-    httpUpdate.onProgress(ota_progress_callback);
-    httpUpdate.rebootOnUpdate(true); // 下載並刷寫完畢後自動重啟
-
-    Serial.println("🚀 發起 GitHub HTTPUpdate 請求...");
-    t_httpUpdate_return ret = httpUpdate.update(client, update_url);
-
-    // 若程式繼續往下執行，代表 OTA 過程出錯
-    if (ret == HTTP_UPDATE_FAILED) {
-        int err_code = httpUpdate.getLastError();
-        String err_str = httpUpdate.getLastErrorString();
-
-        Serial.printf("❌ GitHub OTA 升級失敗！代碼 (%d): %s\n", err_code, err_str.c_str());
-
-        tft.fillScreen(TFT_BLACK);
-        tft.setTextColor(TFT_RED);
-        tft.drawCentreString("UPDATE FAILED!", 160, 80, 4);
-        tft.setTextColor(TFT_WHITE);
-        tft.drawCentreString("Error Code: " + String(err_code), 160, 130, 2);
-        tft.drawCentreString(err_str, 160, 160, 2);
-    }
+    // 🎯 關鍵步驟：發起 HTTP GET 檢查 API
+    check_for_updates();
 }
 
 void loop() {
-    // OTA 測試階段 loop 無需執行任務
+    // 主程式邏輯 (若未觸發 OTA 重啟，將在此處運行)
+    delay(1000);
 }
