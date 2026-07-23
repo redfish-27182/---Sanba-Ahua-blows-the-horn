@@ -34,11 +34,3 @@
 ### 📡 HTTP OTA 無線升級與動態進度條
 * 支援透過區域網路 / 雲端 HTTP 伺服器下載 `.bin` 韌體。
 * **即時下載回呼 (Progress Callback)**：下載過程中螢幕不凍結，即時顯示下載百分比與像素風格綠色進度條。
-
----
-
-## ⚙️ 開發與燒錄步驟 (Setup & Installation)
-
-1. **複製專案 (Clone Repository)**
-   ```bash
-   git clone [https://github.com/redfish-27182/---Sanba-Ahua-blows-the-horn.git](https://github.com/redfish-27182/---Sanba-Ahua-blows-the-horn.git)
