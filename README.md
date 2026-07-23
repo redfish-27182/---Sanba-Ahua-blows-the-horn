@@ -34,3 +34,11 @@
 ### 📡 HTTP OTA 無線升級與動態進度條
 * 支援透過區域網路 / 雲端 HTTP 伺服器下載 `.bin` 韌體。
 * **即時下載回呼 (Progress Callback)**：下載過程中螢幕不凍結，即時顯示下載百分比與像素風格綠色進度條。
+
+## ⚠️ 觸控開發注意事項
+
+小黃板 (CYD) 的 XPT2046 觸控晶片與 ILI9341 螢幕**沒有共用 SPI 匯流排**（觸控為獨立腳位：`CLK: 25`, `MISO: 39`, `MOSI: 32`, `CS: 33`）。
+
+因此**不能使用 `TFT_eSPI` 的內建觸控 API**（如 `tft.getTouch()`），否則會完全沒有反應。
+
+**解決方案**：必須使用獨立的 [`XPT2046_Touchscreen`](https://github.com/PaulStoffregen/XPT2046_Touchscreen) 程式庫，並為其開啟獨立的 `SPIClass` 進行讀取。
