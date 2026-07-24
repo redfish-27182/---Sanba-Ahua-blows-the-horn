@@ -8,9 +8,8 @@
 
 class GitHubOTA {
 private:
-    TFT_eSPI &tft; // 🎯 使用引用 (&)，直接綁定外部傳進來的 TFT 螢幕
+    TFT_eSPI &tft;
 
-    // 繪製 UI 進度條
     void drawProgressBar(int progress) {
         tft.fillRect(40, 140, 240, 20, TFT_BLACK);
         tft.drawRect(38, 138, 244, 24, TFT_WHITE);
@@ -25,11 +24,12 @@ private:
     }
 
 public:
-    // 建構子：接收外部的 tft 螢幕變數 (使用 &)
     GitHubOTA(TFT_eSPI &tftScreen) : tft(tftScreen) {}
 
-    // 執行 HTTPS OTA 升級
     bool startOTA(String downloadUrl) {
+        Serial.printf("🔍 [DEBUG] 傳入 GitHubOTA 的實際網址: [%s]\n", downloadUrl.c_str());
+        Serial.printf("🔍 [DEBUG] 網址字串長度: %d\n", downloadUrl.length());
+        
         if (downloadUrl.length() == 0) {
             Serial.println("❌ 無效的下載網址");
             return false;
@@ -37,7 +37,6 @@ public:
 
         Serial.println("🚀 啟動 GitHub HTTPS OTA 升級程序...");
 
-        // 直接像平時一樣用 . 來呼叫 tft 的功能！
         tft.fillScreen(TFT_BLACK);
         tft.setTextColor(TFT_CYAN, TFT_BLACK);
         tft.setTextDatum(TC_DATUM);
@@ -47,9 +46,9 @@ public:
         WiFiClientSecure client;
         client.setInsecure(); // 忽略 SSL 憑證驗證
 
+        // 🎯 核心重點：維持你原本寫的 HTTPC_STRICT_FOLLOW_REDIRECTS 即可！
         httpUpdate.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
         
-        // 綁定進度條
         httpUpdate.onProgress([this](int current, int total) {
             int percent = (current * 100) / total;
             this->drawProgressBar(percent);
@@ -57,6 +56,7 @@ public:
         
         httpUpdate.rebootOnUpdate(true);
 
+        // 直接交給 httpUpdate 自動處理 GitHub 302 重定向
         t_httpUpdate_return ret = httpUpdate.update(client, downloadUrl);
 
         if (ret == HTTP_UPDATE_FAILED) {
