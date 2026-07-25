@@ -6,7 +6,7 @@
 
 ## 📖 專案簡介
 
-「三八阿花吹喇叭」是一個將實體硬體與電玩世界結合的互動專案。透過 ESP32 與彩色 TFT 顯示屏，將遠端的訊息、動態天氣與互動事件，化為懷舊像素風的遊戲場景。
+「三八阿花吹喇叭」是一個將實體硬體與電玩世界結合的互動專案。透過 主控 ESP32 的黃色便宜小板板，將遠端的訊息、動態天氣與互動事件，化為懷舊像素風的遊戲場景。
 
 * **無線空中升級 (HTTP OTA)**：支援無縫遠端韌體更新，並具備動態像素風進度條。
 * **復古遊戲視界**：搭載 `TFT_eSPI` 繪製 320x240 懷舊點陣畫面。
@@ -17,7 +17,7 @@
 ## 🛠️ 硬體與技術棧
 
 ### 硬體
-* **主控板**：ESP32 (ESP32-2432S028 / CYD 小黃板)
+* **主控板**：ESP32 (ESP32-2432S028 / 黃色便宜小板板)
 * **顯示器**：2.8 吋 TFT 液晶螢幕 (320x240, SPI 介面)
   
 <table border="10">
@@ -25,7 +25,7 @@
     <td width="50%" align="center">
       <img src="https://github.com/redfish-27182/---Sanba-Ahua-blows-the-horn/blob/main/sunton_esp32_2432S028.jpg" width="100%">
       <br>
-      <sub><b>ESP32 小黃板</b></sub>
+      <sub><b>ESP32 黃色便宜小板板</b></sub>
     </td>
     <td width="50%" align="center">
       <img src="https://github.com/redfish-27182/---Sanba-Ahua-blows-the-horn/blob/main/%E9%98%BF%E8%8A%B1%E5%9C%96%E7%89%87.jpg" width="100%">
