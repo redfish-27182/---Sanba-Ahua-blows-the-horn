@@ -19,7 +19,21 @@
 ### 硬體
 * **主控板**：ESP32 (ESP32-2432S028 / CYD 小黃板)
 * **顯示器**：2.8 吋 TFT 液晶螢幕 (320x240, SPI 介面)
-![image](https://github.com/redfish-27182/---Sanba-Ahua-blows-the-horn/blob/main/sunton_esp32_2432S028.jpg)
+  
+<table border="0">
+  <tr>
+    <td width="50%" align="center">
+      <img src="https://github.com/redfish-27182/---Sanba-Ahua-blows-the-horn/blob/main/sunton_esp32_2432S028.jpg" width="100%">
+      <br>
+      <sub><b>ESP32 小黃板</b></sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="https://github.com/redfish-27182/---Sanba-Ahua-blows-the-horn/blob/main/%E9%98%BF%E8%8A%B1%E5%9C%96%E7%89%87.jpg" width="100%">
+      <br>
+      <sub><b>阿花</b></sub>
+    </td>
+  </tr>
+</table>
 
 ### 軟體 & 程式庫
 * **開發環境**：VS Code + PlatformIO (ESP32) + Python (server)
