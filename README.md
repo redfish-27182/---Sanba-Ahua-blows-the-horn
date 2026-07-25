@@ -16,16 +16,17 @@
 
 ## 🛠️ 硬體與技術棧
 
-### Hardware
+### 硬體
 * **主控板**：ESP32 (ESP32-2432S028 / CYD 小黃板)
 * **顯示器**：2.8 吋 TFT 液晶螢幕 (320x240, SPI 介面)
 
-### Software & Libraries
-* **開發環境**：VS Code + PlatformIO
+### 軟體 & 程式庫
+* **開發環境**：VS Code + PlatformIO (ESP32) + Python (server)
 * **核心庫**：
   * `TFT_eSPI` - 螢幕驅動與圖形繪製
   * `HTTPUpdate.h` & `HTTPClient.h` - HTTP OTA 線上升級
   * `WiFi.h` - 無線網路連線管理
+  * `FastAPI` - 雲端資料管理 / HTTP請求
 
 ---
 
