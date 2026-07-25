@@ -20,7 +20,7 @@
 * **主控板**：ESP32 (ESP32-2432S028 / CYD 小黃板)
 * **顯示器**：2.8 吋 TFT 液晶螢幕 (320x240, SPI 介面)
   
-<table border="0">
+<table border="10">
   <tr>
     <td width="50%" align="center">
       <img src="https://github.com/redfish-27182/---Sanba-Ahua-blows-the-horn/blob/main/sunton_esp32_2432S028.jpg" width="100%">
