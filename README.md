@@ -53,8 +53,10 @@
 
 ## ⚠️ 開發注意事項
 
-小黃板 (CYD) 的 XPT2046 觸控晶片與 ILI9341 螢幕**沒有共用 SPI 匯流排**（觸控為獨立腳位：`CLK: 25`, `MISO: 39`, `MOSI: 32`, `CS: 33`）。
+小黃板 (CYD) 的 XPT2046 觸控晶片與 ILI9341 螢幕**沒有共用 SPI 匯流排**（觸控為獨立腳位：`CLK: 25`, `MISO: 39`, `MOSI: 32`, `CS: 33`）。因此**不能使用 `TFT_eSPI` 的內建觸控 API**（如 `tft.getTouch()`），否則會完全沒有反應。
 
-因此**不能使用 `TFT_eSPI` 的內建觸控 API**（如 `tft.getTouch()`），否則會完全沒有反應。
+* **獨立 VSPI 頻道**：CYD 板子的觸控晶片走獨立的 SPI 腳位 (CLK:25, MISO:39, MOSI:32, CS:33)，需使用 `SPIClass touchSpi(VSPI)` 獨立初始化。
+* **避免 SPI 搶占 (SPI Bus Conflict)**：
+  在呼叫 `PromptDialog.show()` 進行觸控監聽前，**切勿提前執行 `SD.begin()` 或全域 `SPI.begin()`**。預設 SPI 初始化可能會影響觸控 SPI 腳位狀態，導致 `ts.touched()` 無法感應。請務必在觸控對話框選擇完畢後，再進行 SD 卡掛載。
 
 **解決方案**：必須使用獨立的 [`XPT2046_Touchscreen`](https://github.com/PaulStoffregen/XPT2046_Touchscreen) 程式庫
