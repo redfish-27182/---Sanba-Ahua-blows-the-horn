@@ -27,8 +27,8 @@ public:
     GitHubOTA(TFT_eSPI &tftScreen) : tft(tftScreen) {}
 
     bool startOTA(String downloadUrl) {
-        Serial.printf("🔍 [DEBUG] 傳入 GitHubOTA 的實際網址: [%s]\n", downloadUrl.c_str());
-        Serial.printf("🔍 [DEBUG] 網址字串長度: %d\n", downloadUrl.length());
+        //Serial.printf("🔍 [DEBUG] 傳入 GitHubOTA 的實際網址: [%s]\n", downloadUrl.c_str());
+        //Serial.printf("🔍 [DEBUG] 網址字串長度: %d\n", downloadUrl.length());
         
         if (downloadUrl.length() == 0) {
             Serial.println("❌ 無效的下載網址");

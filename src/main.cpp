@@ -1,50 +1,72 @@
 #include <Arduino.h>
 #include <TFT_eSPI.h>
-#include <WiFiManager.h>
 #include <SPI.h>
-#include <SD.h>
+#include <XPT2046_Touchscreen.h>
+#include <WiFiManager.h>
 
-#include "Updater/UpdateManager.h"// 引入我們的 Updater 獨立模組包
+#include "UI/PromptDialog.h"
+#include "UpdateManager/UpdateManager.h"
 
-#define SD_CS 5
+#define TFT_BL 21
+#define SD_CS_PIN 5
+
+// 🎯 完全使用你測試成功的腳位與物件名稱 ts
+#define XPT2046_IRQ   36
+#define XPT2046_MOSI  32
+#define XPT2046_MISO  39
+#define XPT2046_CLK   25
+#define XPT2046_CS    33
 
 TFT_eSPI tft = TFT_eSPI();
+SPIClass touchSpi = SPIClass(VSPI);
+XPT2046_Touchscreen ts(XPT2046_CS, XPT2046_IRQ); // 確定使用 ts
 
-// 設定 FastAPI 網址與當前編譯的韌體版本號
-const String SERVER_URL     = "http://192.168.0.101:8000/api/v1/config";
-const String CURRENT_FW_VER = "1.0.0";
+PromptDialog dialog(tft, ts); // 將 ts 傳給 dialog
+UpdateManager updateManager("http://192.168.0.101:8000/api/v1/config", "1.0.0", tft);
 
-// 實體化 UpdateManager，將 tft 螢幕物件傳進去
-UpdateManager updater(SERVER_URL, CURRENT_FW_VER, tft);
+SystemConfig pendingConfig;
 
 void setup() {
     Serial.begin(115200);
+    delay(500);
 
+    // 1. 螢幕初始化
     pinMode(TFT_BL, OUTPUT);
-    digitalWrite(TFT_BL, HIGH); // 💡 開啟背光
+    digitalWrite(TFT_BL, HIGH);
 
     tft.init();
     tft.setRotation(1);
+    tft.fillScreen(TFT_BLACK);
 
-    //updater.resetAssetVersion();
+    // 2. 🎯 完全比照你的成功測試程式：初始化獨立觸控 SPI
+    touchSpi.begin(XPT2046_CLK, XPT2046_MISO, XPT2046_MOSI, XPT2046_CS);
+    ts.begin(touchSpi);
+    ts.setRotation(1);
 
-    // 初始化 SD 卡
-    SPIClass sdSpi = SPIClass(HSPI);
-    sdSpi.begin(18, 19, 23, SD_CS);
-    SD.begin(SD_CS, sdSpi);
-
+    // 3. WiFi 連線
     WiFiManager wm;
-    wm.autoConnect("黃色小板板的測試");
+    wm.autoConnect("ESP32-Console");
 
-    updater.begin();
+    // 4. 檢查更新與彈出對話框 (此時 SD 卡還沒 begin，SPI 極度乾淨！)
+    if (updateManager.hasPendingUpdate(pendingConfig)) {
+        String msg = "New Version Available!\nFW: " + pendingConfig.firmwareVersion + "\nUpdate now?";
+        
+        bool userChoice = dialog.show("SYSTEM UPDATE", msg, "[A] OK", "[B] CANCEL");
 
-    // 🚀 執行大更新 (比對程式與大圖片資產包版本)
-    updater.checkMajorUpdates();
+        if (userChoice) {
+            // 使用者按了 OK 之後，才初始化 SD 卡並執行下載！
+            SPI.begin();
+            SD.begin(SD_CS_PIN);
+            updateManager.executePendingUpdate(pendingConfig);
+        } else {
+            Serial.println("跳過更新，進入遊戲...");
+        }
+    }
 
-   
-    Serial.println("進入主程序...");
+    // 初始化 SD 卡（供遊戲讀取資源）
+    SPI.begin();
+    SD.begin(SD_CS_PIN);
 }
 
 void loop() {
-    // 處理常態 UI
 }
