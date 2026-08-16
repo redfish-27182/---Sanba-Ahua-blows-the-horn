@@ -53,10 +53,9 @@
 
 ## ⚠️ 開發注意事項
 
-小黃板 (CYD) 的 XPT2046 觸控晶片與 ILI9341 螢幕**沒有共用 SPI 匯流排**（觸控為獨立腳位：`CLK: 25`, `MISO: 39`, `MOSI: 32`, `CS: 33`）。因此**不能使用 `TFT_eSPI` 的內建觸控 API**（如 `tft.getTouch()`），否則會完全沒有反應。
+小黃板 (CYD / ESP32-2432S028) 的 XPT2046 觸控晶片與螢幕、SD 卡使用不同的實體引腳（觸控走線為固定腳位：`CLK: 25`, `MISO: 39`, `MOSI: 32`, `CS: 33`）。不能使用 `TFT_eSPI` 的內建觸控 API（如 `tft.getTouch()`），必須使用獨立的 `XPT2046_Touchscreen` 函式庫。
 
-* **獨立 VSPI 頻道**：CYD 板子的觸控晶片走獨立的 SPI 腳位 (CLK:25, MISO:39, MOSI:32, CS:33)，需使用 `SPIClass touchSpi(VSPI)` 獨立初始化。
-* **避免 SPI 搶占 (SPI Bus Conflict)**：
-  在呼叫 `PromptDialog.show()` 進行觸控監聽前，**切勿提前執行 `SD.begin()` 或全域 `SPI.begin()`**。預設 SPI 初始化可能會影響觸控 SPI 腳位狀態，導致 `ts.touched()` 無法感應。請務必在觸控對話框選擇完畢後，再進行 SD 卡掛載。
-
-**解決方案**：必須使用獨立的 [`XPT2046_Touchscreen`](https://github.com/PaulStoffregen/XPT2046_Touchscreen) 程式庫
+* **使用獨立 HSPI 硬體引擎（解決 SD 卡 / SPI 衝突）**：
+  ESP32 內部具備兩套獨立的 SPI 控制器（`VSPI` 與 `HSPI`）。螢幕與 SD 卡預設使用 `VSPI`（引腳 18, 19, 23）；若將觸控也配置在 `VSPI`，呼叫 `SD.begin()` 時會覆寫觸控腳位映射，導致觸控通訊中斷（讀取值卡在 `4095` 或無回應）。
+  
+  **最佳解法**：利用 ESP32 的 **GPIO Matrix（引腳矩陣）** 特性，將觸控物件綁定至獨立的 **`HSPI`** 控制器，實體線路完全無需變動即可讓 SD 卡讀寫與觸控常駐監聽（如休眠計時）並行運作：
