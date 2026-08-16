@@ -18,13 +18,18 @@
 #define XPT2046_CS    33
 
 TFT_eSPI tft = TFT_eSPI();
-SPIClass touchSpi = SPIClass(VSPI);
-XPT2046_Touchscreen ts(XPT2046_CS, XPT2046_IRQ); // 確定使用 ts
+
+SPIClass touchSpi = SPIClass(HSPI);
+XPT2046_Touchscreen ts(XPT2046_CS, XPT2046_IRQ);
 
 PromptDialog dialog(tft, ts); // 將 ts 傳給 dialog
 UpdateManager updateManager("http://192.168.0.101:8000/api/v1/config", "1.0.0", tft);
 
 SystemConfig pendingConfig;
+
+const unsigned long SLEEP_TIMEOUT_MS = 20000; // 20 秒無操作自動進入硬體睡眠
+unsigned long lastActivityTime = 0;
+bool lastTouched = false;
 
 void setup() {
     Serial.begin(115200);
@@ -66,7 +71,49 @@ void setup() {
     // 初始化 SD 卡（供遊戲讀取資源）
     SPI.begin();
     SD.begin(SD_CS_PIN);
+
+    lastActivityTime = millis();
+}
+
+// 進入 ESP32 硬體淺度睡眠
+void enterLightSleep() {
+    digitalWrite(TFT_BL, LOW); // 關閉背光
+    tft.fillScreen(TFT_BLACK); // 清空螢幕
+    Serial.flush(); // 清空緩衝區
+    esp_sleep_enable_ext0_wakeup(GPIO_NUM_36, 0); // 設定 GPIO 36 為喚醒來源
+    esp_light_sleep_start(); // 進入淺度睡眠
+    digitalWrite(TFT_BL, HIGH); // 點亮背光
+
+    // 防誤觸：等待手指離開螢幕，避免喚醒的第一下誤點擊遊戲按鈕
+    delay(100);
+    while (ts.touched()) {delay(10);}
+    delay(100);
+
+    lastActivityTime = millis(); // 重設計時器
 }
 
 void loop() {
+    // 1. 偵測正常觸控
+    if (ts.touched()) {
+        TS_Point p = ts.getPoint();
+        int x = map(p.x, 200, 3700, 0, 320);
+        int y = map(p.y, 240, 3800, 0, 240);
+
+        Serial.printf("👉 [TOUCH] X: %d, Y: %d\n", x, y);
+
+        // 重設計時器
+        lastActivityTime = millis();
+        delay(50);
+    }
+
+    // 2. 檢查是否超時
+    if (millis() - lastActivityTime > SLEEP_TIMEOUT_MS) {
+        enterLightSleep();
+    }
+
+    // 3. 正常遊戲主邏輯更新
+    // ...
+
+    delay(20);
 }
+
