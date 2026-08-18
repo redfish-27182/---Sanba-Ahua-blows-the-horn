@@ -39,8 +39,9 @@
 * **開發環境**：VS Code + PlatformIO (ESP32) + Python (server)
 * **核心庫**：
   * `TFT_eSPI` - 螢幕驅動與圖形繪製
-  * `HTTPUpdate.h` & `HTTPClient.h` - HTTP OTA 線上升級
+  * `HTTPUpdate.h` - HTTP OTA 線上升級
   * `WiFi.h` - 無線網路連線管理
+  * `FreeRTOS.h` - 多任務管理架構
   * `FastAPI` - 雲端資料管理 / HTTP請求
 
 ---
