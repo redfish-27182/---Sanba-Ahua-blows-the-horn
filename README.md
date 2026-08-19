@@ -46,6 +46,33 @@
 
 ---
 
+## 📁 專案目錄與架構說明 (Project Structure)
+
+本專案採用 **PlatformIO** 進行開發，基於 **ESP32 FreeRTOS 多任務架構** 進行模組化設計。系統將「觸控採樣」、「畫面渲染」、「聯網更新」與「UI 對話框」各模組解耦，透過 FreeRTOS Queue 進行跨任務資料傳遞。
+
+```text
+.
+├── platformio.ini              # PlatformIO 專案配置檔與相依庫管理
+└── src/
+    ├── main.cpp                # 系統主入口：硬體初始化、WiFi 配網、OTA 檢查與 Task 啟動
+    ├── Config.h                # 全域硬體腳位定義 (TFT, XPT2046, SD) 與系統逾時設定
+    ├── EventTypes.h            # FreeRTOS 隊列資料結構 (InputEvent, GestureCategory) 與全域 Queue 宣告
+    ├── User_Setup.h            # TFT_eSPI 驅動設定檔
+    │
+    ├── Tasks/                  # 🧵 FreeRTOS 任務執行層 (獨立執行緒)
+    │   ├── TouchTask.h / .cpp  # 觸控任務：獨立 HSPI 雙重採樣、抗跳點濾波與手勢結算 (TAP, SWIPE 等)
+    │   └── DisplayTask.h / .cpp# 渲染任務：接收 Queue 事件、1 秒影子回放渲染與 Light-Sleep 睡眠管理
+    │
+    ├── UI/                     # 🎨 介面與彈窗元件層
+    │   └── PromptDialog.h / .cpp # 阻塞式/互動式彈窗元件 (支援觸控按鈕判定)
+    │
+    └── UpdateManager/          # 🌐 網路與系統更新模組
+        ├── UpdateManager.h / .cpp # OTA 版本比對與更新流程調度
+        ├── GitHubOTA.h         # 韌體下載與 Flash 燒錄核心
+        ├── ImageDownloader.h   # SD 卡靜態資源/圖片更新器
+        └── README.md           # OTA 模組說明文件
+```
+
 ## 最新功能亮點
 
 ### HTTP OTA 無線升級與動態進度條
