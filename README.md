@@ -55,12 +55,12 @@
 ├── platformio.ini              # PlatformIO 專案配置檔與相依庫管理
 └── src/
     ├── main.cpp                # 系統主入口：硬體初始化、WiFi 配網、OTA 檢查與 Task 啟動
-    ├── Config.h                # 全域硬體腳位定義 (TFT, XPT2046, SD) 與系統逾時設定
-    ├── EventTypes.h            # FreeRTOS 隊列資料結構 (InputEvent, GestureCategory) 與全域 Queue 宣告
+    ├── Config.h                # 全域硬體腳位定義與系統逾時設定
+    ├── EventTypes.h            # FreeRTOS 隊列資料結構與全域 Queue 宣告
     ├── User_Setup.h            # TFT_eSPI 驅動設定檔
     │
     ├── Tasks/                  # 🧵 FreeRTOS 任務執行層 (獨立執行緒)
-    │   ├── TouchTask.h / .cpp  # 觸控任務：獨立 HSPI 雙重採樣、抗跳點濾波與手勢結算 (TAP, SWIPE 等)
+    │   ├── TouchTask.h / .cpp  # 觸控任務：獨立 HSPI 雙重採樣、抗跳點濾波與手勢結算
     │   └── DisplayTask.h / .cpp# 渲染任務：接收 Queue 事件、1 秒影子回放渲染與 Light-Sleep 睡眠管理
     │
     ├── UI/                     # 🎨 介面與彈窗元件層
