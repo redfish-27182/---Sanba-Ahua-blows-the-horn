@@ -47,31 +47,68 @@
 
 ---
 
-## 專案目錄與架構 
-
-本專案基於 ** FreeRTOS 多任務架構** 進行模組化設計。
+## 目前專案結構
 
 ```text
 .
-├── platformio.ini              # PlatformIO 專案配置檔與相依庫管理
+├── platformio.ini                       # PlatformIO 設定與程式庫相依
 └── src/
-    ├── main.cpp                # 系統主入口
-    ├── Config.h                # 全域硬體腳位定義與系統逾時設定
-    ├── EventTypes.h            # FreeRTOS 隊列資料結構與全域 Queue 宣告
-    ├── User_Setup.h            # TFT_eSPI 驅動設定檔
-    │
-    ├── Tasks/                    # 🧵 FreeRTOS 任務執行層
-    │   ├── TouchTask.h / .cpp    # 觸控任務：觸控濾波與手勢結算
-    │   └── DisplayTask.h / .cpp  # 渲染任務：螢幕渲染與睡眠模式
-    │
-    ├── UI/                       # 🎨 介面與彈窗元件層
-    │   └── PromptDialog.h / .cpp # 二選一彈窗元件
-    │
-    └── UpdateManager/             # 🌐 網路與系統更新模組
-        ├── UpdateManager.h / .cpp # OTA 版本比對
-        ├── GitHubOTA.h            # 韌體下載與燒錄
-        ├── ImageDownloader.h      # SD 卡圖片更新器
-        └── README.md              # OTA 模組說明文件
+    ├── main.cpp                         # 硬體、Wi‑Fi、與 Task 啟動
+    ├── Config.h                         # 腳位、目前版本與更新網址
+    ├── EventTypes.h                     # 觸控事件 InputEvent 與 inputQueue 宣告
+    ├── User_Setup.h                     # TFT_eSPI 螢幕設定
+    ├── App/
+    │   ├── AppMessages.h                # Task 之間傳遞的訊息結構
+    │   └── AppQueues.h / .cpp           # Queue 宣告、實體與建立函式
+    ├── Network/
+    │   ├── MqttTlsClient.h / .cpp       # TLS CA 憑證、校時( EMQX需要 )
+    │   ├── MqttTopics.h                 # MQTT 的 Topic 路徑
+    │   └── MqttTask.h / .cpp            # MQTT 連線、訂閱、收發與重連 Task
+    ├── Tasks/
+    │   └── TouchTask.h / .cpp           # 產生觸控／手勢事件
+    ├── UI/
+    │   ├── PromptDialog.h / .cpp        # 觸控確認對話框
+    │   └── UiTask.h / .cpp              # 渲染畫面
+    └── UpdateManager/
+        ├── UpdateManager.h / .cpp       # 版本比較與通知更新
+        ├── GitHubOTA.h                  # OTA 更新 
+        └── ImageDownloader.h            # 舊的圖片下載模組 (之後需要完善)
+```
+
+## FreeRTOS Task 分工
+
+| Task | 核心 | 優先權 | Stack | 責任 |
+| --- | ---: | ---: | ---: | --- |
+| `TouchTask` | Core 1 | 4 | 4096 bytes | 讀取觸控、判斷 TAP／DRAG／LONG_PRESS／SWIPE，寫入 `inputQueue`。 |
+| `UiTask` | Core 1 | 3 | 4096 bytes | 正常狀態下唯一持續使用 TFT 的 Task；繪製簡單動畫、顯示網路狀態、呼叫 `PromptDialog`。 |
+| `UpdateManager` | Core 0 | 2 | 8192 bytes | 接收 MQTT 版本訊息，詢問使用者、組 OTA URL，並呼叫 `GitHubOTA`。 |
+| `MqttTask` | Core 0 | 2 | 6144 bytes | MQTTS 校時、連線、訂閱、重連、訊息收發與裝置狀態發布。 |
+
+
+## Queue 與資料流
+
+跨 Task 的資料使用固定大小的 struct 放入 Queue，避免共用 `String` 或直接跨 Task 操作物件。
+
+| Queue | 生產者 | 消費者 | 資料型別 | 用途 |
+| --- | --- | --- | --- | --- |
+| `inputQueue` | `TouchTask` | `PromptDialog`（由 `UiTask` 呼叫） | `InputEvent` | 觸控與手勢事件。 |
+| `mqttInboundQueue` | `MqttTask` | `UpdateManager` | `MqttInboundEvent` | MQTT 收到的主題與 payload。 |
+| `mqttPublishQueue` | 未來其他 Task | `MqttTask` | `MqttPublishRequest` | 要由 MQTT 背景 Task 發送的訊息；目前保留給後續功能。 |
+| `uiCommandQueue` | `MqttTask`、`UpdateManager` | `UiTask` | `UiCommand` | 網路狀態、更新詢問、OTA 前暫停繪圖與通知。 |
+| `uiResponseQueue` | `UiTask` | `UpdateManager` | `UiResponse` | 使用者確認／取消，以及 TFT 已可供 OTA 使用的確認。 |
+
+```text
+TouchTask ── inputQueue ──> PromptDialog（UiTask）
+
+MqttTask ── mqttInboundQueue ──> UpdateManager
+                                      │
+                                      ├── uiCommandQueue ──> UiTask / PromptDialog
+                                      └<─ uiResponseQueue ── UiTask
+                                      │
+                                      └── GitHubOTA ──> GitHub Release firmware.bin
+
+其他 Task ── mqttPublishQueue ──> MqttTask ──> EMQX Broker
+MqttTask ── uiCommandQueue ──> UiTask（Wi‑Fi／MQTT 狀態）
 ```
 
 ## ⚠️ 開發注意事項

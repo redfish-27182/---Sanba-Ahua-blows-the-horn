@@ -29,23 +29,28 @@ QueueHandle_t inputQueue = nullptr;
 void setup() {
     Serial.begin(115200);
 
-    // 1. 螢幕初始化
+    // --------------------1. 螢幕初始化 --------------------------//
+
     pinMode(TFT_BL, OUTPUT);
     digitalWrite(TFT_BL, HIGH);
     tft.init();
     tft.setRotation(1);
     tft.fillScreen(TFT_BLACK);
 
-    // 2. 初始化獨立觸控 SPI
+    // -------------------2. 初始化獨立觸控 SPI -------------------//
+
     touchSpi.begin(XPT2046_CLK, XPT2046_MISO, XPT2046_MOSI, XPT2046_CS);
     ts.begin(touchSpi);
     ts.setRotation(1);
+
+    // -------------------3. 建立 FreeRTOS 隊列 -------------------//
 
     constexpr UBaseType_t inputQueueLength = 10; // FreeRTOS 隊列長度
     inputQueue = xQueueCreate(inputQueueLength, sizeof(InputEvent));
     const bool appQueuesReady = AppQueues_Create();
 
-    // PromptDialog 也使用 TouchTask 的事件，因此必須在首次 show() 前準備完成。
+    // -------------------4. 啟動 TouchTask -------------------//
+
     if (inputQueue == nullptr) {
         Serial.println("Failed to create input queue.");
     } else {
@@ -53,7 +58,7 @@ void setup() {
         TouchTask_Start(ts, touchTaskPriority, 1); 
     }
 
-    // 3. WiFi 連線 (Exit 按鈕 + 逾時跳過)
+    // -----------------5. WiFi 連線 (Exit 按鈕 + 逾時跳過) -----------------//
     WiFiManager wm;
     wm.setConnectTimeout(8);
     
@@ -61,11 +66,11 @@ void setup() {
     tft.setTextSize(2);
     tft.setCursor(10, 10);
     tft.println("Connecting to saved WiFi...");
+    tft.setTextSize(1);
+    
+    bool isConnected = wm.autoConnect();
 
-    // 先嘗試自動連接已存的 WiFi (如果連不上，不要立刻開熱點卡死)
-    bool isConnected = wm.autoConnect(); 
-
-    // 如果沒連上已存的 WiFi，彈出對話框詢問使用者
+        // 如果沒連上已存的 WiFi，彈出對話框詢問使用者
     if (!isConnected) {
         Serial.println("⚠️ 無法連線至已儲存的 Wi-Fi");
 
@@ -99,49 +104,23 @@ void setup() {
         }
     }
     
-    /*
-    // 4. 檢查更新 (完整保留 OTA 與對話框邏輯)
-    if (isConnected) {
-        Serial.println("✅ Wi-Fi 連線成功！檢查系統更新中...");
-        
-        if (updateManager.hasPendingUpdate(pendingConfig)) {
-            String msg = "New Version Available!\nFW: " + pendingConfig.firmwareVersion + "\nUpdate now?";
-            
-            bool userChoice = dialog.show("SYSTEM UPDATE", msg, "[A] OK", "[B] CANCEL");
-
-            if (userChoice) {
-                SPI.begin();
-                SD.begin(SD_CS_PIN);
-                updateManager.executePendingUpdate(pendingConfig);
-            } else {
-                Serial.println("跳過更新，進入系統...");
-            }
-        }
-    } else {
-        Serial.println("❌ 進入離線模式 (跳過更新檢查)");
-        WiFi.mode(WIFI_OFF);
-    }
-    */
-
     tft.fillScreen(TFT_BLACK);
 
-    // 5. 初始化 SD 卡
+    // -------------------6. 初始化 SD 卡 -------------------//
     SPI.begin();
     if (!SD.begin(SD_CS_PIN))  Serial.println("⚠️ SD 卡掛載失敗或未插入！");
     else                       Serial.println("✅ SD 卡載入完成");
 
-    // 啟動用對話框已結束；之後由 UiTask 消費畫面命令並更新畫面。
-    // 新增的 Queue 建立失敗時不啟動相依 Task，避免空 Queue 造成不可預期的死機。
+    // -------------------7. 啟動其他 Task -------------------//
     if (!appQueuesReady) {
         Serial.println("Failed to create application queues.");
     } else {
-        // TouchTask 優先權為 4；UiTask 為 3，維持觸控回應優先。
-        UiTask_Start(tft, dialog, 3, 1);
-        UpdateManager_Start(tft, 2, 0);
-        MqttTask_Start(2, 0);
+        UiTask_Start(tft, dialog, 3, 1); // UiTask，啟動!!!!!
+        UpdateManager_Start(tft, 2, 0);  // UpdateManager，啟動!!!!!
+        MqttTask_Start(2, 0);            // MqttTask，啟動!!!!!
     }
 
-    Serial.println("🚀 系統初始化完成，裝置啟動！");
+    Serial.println("🚀 系統初始化完成，原神啟動！");
 }
 
 void loop() {

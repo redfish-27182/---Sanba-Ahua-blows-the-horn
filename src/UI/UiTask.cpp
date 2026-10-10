@@ -21,8 +21,8 @@ namespace {
         xQueueSend(uiResponseQueue, &response, pdMS_TO_TICKS(100));
     }
 
+    // 畫出一般畫面，顯示 WiFi 與 MQTT 狀態。
     void drawNormalScreen(TFT_eSPI &tft, bool wifiOnline, bool mqttOnline) {
-        // 這只是整合階段的簡單動畫，用來確認背景 MQTT 與 UI Task 可以同時運行。
         tft.fillScreen(TFT_BLACK);
         tft.fillScreen(TFT_BLACK);
         tft.setTextColor(TFT_CYAN, TFT_BLACK);
@@ -34,8 +34,14 @@ namespace {
         tft.drawString("MQTT version update enabled", 12, 122, 2);
     }
 
-    void drawAnimationFrame(TFT_eSPI &tft, uint16_t previousX, uint16_t currentX,
-                            bool mqttOnline, bool erasePrevious) {
+    // 畫出動畫圓點，顯示 MQTT 連線狀態。
+    void drawAnimationFrame(
+        TFT_eSPI &tft, 
+        uint16_t previousX, 
+        uint16_t currentX,
+        bool mqttOnline, 
+        bool erasePrevious
+    ) {
         // 只擦除上一個圓點再畫新圓點，避免整個螢幕被反覆清除而閃爍。
         if (erasePrevious) {
             tft.fillCircle(previousX, 190, 14, TFT_BLACK);
@@ -43,6 +49,7 @@ namespace {
         tft.fillCircle(currentX, 190, 12, mqttOnline ? TFT_GREEN : TFT_DARKGREY);
     }
 
+    // 顯示 OTA 訊息是否更新成功或失敗的畫面，並停留三秒後回到一般畫面。
     void showNotice(TFT_eSPI &tft, const char *message) {
         tft.fillScreen(TFT_BLACK);
         tft.setTextColor(TFT_YELLOW, TFT_BLACK);
@@ -52,18 +59,22 @@ namespace {
         tft.drawString(message, 160, 105, 2);
     }
 
+    // UiTask 的主要迴圈，負責處理 UI 命令與更新畫面。
     void uiTask(void *parameter) {
+
+        // 取得 UiTaskContext，並釋放記憶體。
         const UiTaskContext context = *static_cast<UiTaskContext *>(parameter);
         delete static_cast<UiTaskContext *>(parameter);
 
-        bool normalUiEnabled = true;
+        // 初始化 UI 狀態。
+        bool normalUiEnabled = true; // 是否啟用一般畫面繪製
         bool wifiOnline = WiFi.status() == WL_CONNECTED;
-        bool mqttOnline = false;
-        uint16_t animationX = 20;
+        bool mqttOnline = false; // MQTT 連線狀態由 CoordinatorTask 更新
+        uint16_t animationX = 20; // 動畫圓點的 X 座標
         uint16_t previousAnimationX = animationX;
         int8_t animationDirection = 1;
-        uint32_t lastFrameAt = 0;
-        bool needsNormalRedraw = true;
+        uint32_t lastFrameAt = 0; // 上一個畫面更新的時間戳記
+        bool needsNormalRedraw = true; // 是否需要重新繪製一般畫面
 
         for (;;) {
             UiCommand command{};
@@ -118,6 +129,7 @@ namespace {
                         break;
                 }
             }
+            // 每隔 80ms 更新一次畫面，避免過度消耗 CPU。
             if (normalUiEnabled && millis() - lastFrameAt >= 80) {
                 if (needsNormalRedraw) {
                     drawNormalScreen(*context.tft, wifiOnline, mqttOnline);

@@ -10,102 +10,115 @@
 
 namespace {
 
-struct UpdateManagerContext {
-    TFT_eSPI *tft;
-};
+    struct UpdateManagerContext {
+        TFT_eSPI *tft;
+    };
 
-void sendUiCommand(UiCommandType type, const char *version = "", const char *message = "") {
-    UiCommand command{};
-    command.type = type;
-    strncpy(command.version, version, sizeof(command.version) - 1);
-    strncpy(command.message, message, sizeof(command.message) - 1);
-    xQueueSend(uiCommandQueue, &command, pdMS_TO_TICKS(100));
-}
+    // 告訴 UiTask 顯示訊息，並等待使用者回應。
+    // type: 要顯示的訊息類型、 version: 韌體版本號、message: 顯示的訊息內容
+    void sendUiCommand(
+        UiCommandType type, 
+        const char *version = "", 
+        const char *message = ""
+    ) {
+        UiCommand command{};
+        command.type = type;
+        strncpy(command.version, version, sizeof(command.version) - 1);
+        strncpy(command.message, message, sizeof(command.message) - 1);
+        xQueueSend(uiCommandQueue, &command, pdMS_TO_TICKS(100)); // 傳送給 UiTask，等待 100ms 後放棄。
+    }
 
-String buildFirmwareUrl(const char *version) {
-    // MQTT 只傳版本字串；GitHub Release 的固定網址規則在這裡組合。
-    return String(GITHUB_RELEASE_BASE_URL) + GITHUB_RELEASE_TAG_PREFIX + version + "/" +
-           GITHUB_FIRMWARE_FILENAME;
-}
+    String buildFirmwareUrl(const char *version) {
+        // MQTT 只傳版本字串；GitHub Release 的固定網址規則在這裡組合。
+        return String(GITHUB_RELEASE_BASE_URL) + GITHUB_RELEASE_TAG_PREFIX + version + "/" + GITHUB_FIRMWARE_FILENAME;
+    }
 
-bool waitForDecision(const char *version) {
-    // PromptDialog 本身會等待觸控；UpdateManager 只等待 UiTask 回傳選擇。
-    for (;;) {
-        UiResponse response{};
-        xQueueReceive(uiResponseQueue, &response, portMAX_DELAY);
-
-        if (strcmp(response.version, version) != 0) {
-            continue;
-        }
-        if (response.type == UiResponseType::UPDATE_ACCEPTED) {
-            return true;
-        }
-        if (response.type == UiResponseType::UPDATE_DECLINED) {
-            return false;
+    // 等待使用者在 OTA 詢問框中做出決定，並回傳結果。
+    bool waitForDecision(const char *version) {
+        for (;;) {
+            UiResponse response{}; // 從 UiTask 收到使用者的回應
+            xQueueReceive(uiResponseQueue, &response, portMAX_DELAY); // 無限等待，直到收到回應
+            if (strcmp(response.version, version) != 0) continue;
+            if (response.type == UiResponseType::UPDATE_ACCEPTED) return true;
+            if (response.type == UiResponseType::UPDATE_DECLINED) return false;
         }
     }
-}
 
-void waitForOtaScreen(const char *version) {
-    // GitHubOTA 會直接使用 TFT；先確認 UiTask 已停止一般畫面繪製。
-    for (;;) {
-        UiResponse response{};
-        xQueueReceive(uiResponseQueue, &response, portMAX_DELAY);
-        if (response.type == UiResponseType::OTA_SCREEN_READY &&
-            strcmp(response.version, version) == 0) {
-            return;
+    // 等待 OTA 螢幕準備完成。
+    void waitForOtaScreen(const char *version) {
+        // GitHubOTA 會直接使用 TFT；先確認 UiTask 已停止一般畫面繪製。
+        for (;;) {
+            UiResponse response{};
+            xQueueReceive(uiResponseQueue, &response, portMAX_DELAY);
+            if (response.type == UiResponseType::OTA_SCREEN_READY &&
+                strcmp(response.version, version) == 0) {
+                return;
+            }
         }
     }
-}
 
-void updateManagerTask(void *parameter) {
-    const UpdateManagerContext context = *static_cast<UpdateManagerContext *>(parameter);
-    delete static_cast<UpdateManagerContext *>(parameter);
-    GitHubOTA githubOta(*context.tft);
+    // UpdateManager Task 的主要邏輯：
+    // 監聽 MQTT 訊息，詢問使用者是否更新，並執行 OTA。
+    void updateManagerTask(void *parameter) {
 
-    for (;;) {
-        MqttInboundEvent event{};
-        xQueueReceive(mqttInboundQueue, &event, portMAX_DELAY);
+        // 取得傳入的 TFT 物件，並釋放記憶體
+        const UpdateManagerContext context = *static_cast<UpdateManagerContext *>(parameter);
+        delete static_cast<UpdateManagerContext *>(parameter);
+        GitHubOTA githubOta(*context.tft);
 
-        if (strcmp(event.topic, MQTT_FIRMWARE_VERSION_TOPIC) != 0) {
-            // 未來新增 MQTT 參數時，可在這裡依主題分派給各自的處理器。
-            Serial.printf("Unhandled MQTT topic: %s\n", event.topic);
-            continue;
-        }
+        // 持續監聽 MQTT 訊息
+        for (;;) {
+            // 接收 MQTT 訊息
+            MqttInboundEvent event{}; //
+            xQueueReceive(mqttInboundQueue, &event, portMAX_DELAY);
 
-        // 發布流程保證版本字串正確，因此不做格式驗證、數字比較或檔案存在檢查。
-        // 只要版本字串和目前韌體不同，就允許使用者進行更新或降版。
-        if (strcmp(event.payload, CURRENT_FIRMWARE_VERSION) == 0) {
-            Serial.printf("Firmware already matches MQTT version: %s\n", event.payload);
-            continue;
-        }
+            // 這一段用來檢查MQTT傳過來的訊息是否是我們關心的韌體版本更新訊息
+            if (strcmp(event.topic, MQTT_FIRMWARE_VERSION_TOPIC) != 0) {
+                Serial.printf("Unhandled MQTT topic: %s\n", event.topic);
+                continue;
+            }
 
-        sendUiCommand(UiCommandType::SHOW_UPDATE_PROMPT, event.payload);
-        if (!waitForDecision(event.payload)) {
-            // 不記錄取消結果；Broker 再發布同一版本時，仍會再次詢問。
-            continue;
-        }
+            // 這一段是用來檢查收到的版本號與目前的韌體版本是否相同，如果相同則不需要更新
+            if (strcmp(event.payload, CURRENT_FIRMWARE_VERSION) == 0) {
+                Serial.printf("Firmware already matches MQTT version: %s\n", event.payload);
+                continue;
+            }
 
-        sendUiCommand(UiCommandType::PREPARE_FOR_OTA, event.payload);
-        waitForOtaScreen(event.payload);
+            // 透過 UiTask 顯示更新提示，並等待使用者決定是否更新
+            sendUiCommand(UiCommandType::SHOW_UPDATE_PROMPT, event.payload);
+            if (!waitForDecision(event.payload)) {
+                continue;
+            }
 
-        const String firmwareUrl = buildFirmwareUrl(event.payload);
-        if (!githubOta.startOTA(firmwareUrl)) {
-            // GitHubOTA 已顯示錯誤畫面；再保留三秒提示後回到一般 UI。
-            // 不重試、不記錄失敗；下次 MQTT 訊息來時可重新嘗試。
-            sendUiCommand(UiCommandType::SHOW_NOTICE, event.payload, "OTA failed.");
+            // 使用者同意更新，準備進行 OTA
+            sendUiCommand(UiCommandType::PREPARE_FOR_OTA, event.payload);
+            waitForOtaScreen(event.payload);
+
+            // 建立 GitHub OTA 的下載網址，並開始 OTA 更新
+            const String firmwareUrl = buildFirmwareUrl(event.payload);
+            if (!githubOta.startOTA(firmwareUrl)) {
+                sendUiCommand(UiCommandType::SHOW_NOTICE, event.payload, "OTA failed.");
+                sendUiCommand(UiCommandType::RESUME_NORMAL_UI, event.payload);
+                continue;
+            }
+
+            // 成功時 GitHubOTA 會重開機；此行是異常返回時的保護。
             sendUiCommand(UiCommandType::RESUME_NORMAL_UI, event.payload);
-            continue;
         }
-
-        // 成功時 GitHubOTA 會重開機；此行是異常返回時的保護。
-        sendUiCommand(UiCommandType::RESUME_NORMAL_UI, event.payload);
     }
-}
 
 }  // namespace
 
+// 啟動 UpdateManager Task，並傳入 TFT 物件以供 OTA 顯示進度。
 void UpdateManager_Start(TFT_eSPI &tft, UBaseType_t priority, BaseType_t core) {
     auto *context = new UpdateManagerContext{&tft};
-    xTaskCreatePinnedToCore(updateManagerTask, "UpdateManager", 8192, context, priority, nullptr, core);
+    xTaskCreatePinnedToCore(
+        updateManagerTask, 
+        "UpdateManager", 
+        8192, 
+        context, 
+        priority, 
+        nullptr, 
+        core
+    );
 }

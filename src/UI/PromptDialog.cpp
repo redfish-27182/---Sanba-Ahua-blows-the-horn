@@ -26,6 +26,7 @@ void PromptDialog::drawWindow(
     _tft.setTextColor(TFT_YELLOW, TFT_NAVY);
     _tft.setTextDatum(TC_DATUM);
     _tft.drawString(title.c_str(), winX + winW / 2, winY + 6, 2);
+    _tft.setTextSize(1);
 
     // 將訊息依視窗可用寬度分行繪製。
     _tft.setTextColor(TFT_WHITE, TFT_BLACK);

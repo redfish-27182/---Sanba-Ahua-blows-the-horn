@@ -1,9 +1,10 @@
 #pragma once
+
 #include <Arduino.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 
-// 觸控事件類型
+// TouchTask 傳送到 inputQueue 的觸控／手勢事件。
 enum class InputEventType {
     TOUCH_DOWN,
     DRAG,
@@ -13,14 +14,7 @@ enum class InputEventType {
     RELEASE
 };
 
-// 手勢類型 (用於 Replay 功能)
-enum class GestureCategory {
-    NONE,
-    TAP_TYPE,
-    SWIPE_TYPE
-};
-
-// 輸入事件結構
+// 一筆觸控事件的座標與按壓資訊。
 struct InputEvent {
     InputEventType type;
     int16_t x;
@@ -31,11 +25,5 @@ struct InputEvent {
     uint32_t timestamp;
 };
 
-// Replay 節點結構
-struct ReplayNode {
-    InputEvent event;
-    bool played;
-};
-
-// 全域隊列控制把手 (extern 讓 Tasks 共用)
+// 由 main.cpp 建立，供 TouchTask 與 PromptDialog 共用。
 extern QueueHandle_t inputQueue;

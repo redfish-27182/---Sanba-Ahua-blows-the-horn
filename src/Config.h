@@ -12,10 +12,10 @@
 #define XPT2046_CLK     25
 #define XPT2046_CS      33
 
-// 更新
-constexpr char CURRENT_FIRMWARE_VERSION[] = "0.1.1";
+// OTA 相關設定
+constexpr char CURRENT_FIRMWARE_VERSION[] = "0.1.1"; // 目前的韌體版本號
 constexpr char GITHUB_RELEASE_BASE_URL[] = "https://github.com/redfish-27182/---Sanba-Ahua-blows-the-horn/releases/download/";
-constexpr char GITHUB_RELEASE_TAG_PREFIX[] = "v";
+constexpr char GITHUB_RELEASE_TAG_PREFIX[] = "v"; // GitHub Release 的標籤前綴
 constexpr char GITHUB_FIRMWARE_FILENAME[] = "firmware.bin";
 
 // 系統參數
