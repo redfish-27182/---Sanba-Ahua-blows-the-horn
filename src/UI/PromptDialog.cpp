@@ -33,6 +33,8 @@ void PromptDialog::drawWindow(
     const int startX = winX + 12;
     const int lineHeight = 18;
     int currentY = winY + 36;
+
+    // 使用 String 物件來累積每行文字，直到遇到換行符號或超過視窗寬度。
     String tempLine;
     for (int i = 0; i < message.length(); i++) {
         const char c = message.charAt(i);
@@ -101,18 +103,17 @@ bool PromptDialog::show(
 
     // TouchTask 尚未啟動或佇列建立失敗時，無法等待觸控事件。
     if (inputQueue == nullptr) {
-        Serial.println("PromptDialog: inputQueue is not ready.");
+        Serial.println("觸控佇列尚未建立，PromptDialog 無法正常運作。");
         return false;
     }
 
     // 對話框開啟前的觸控不應被誤當成按鈕操作。
     InputEvent evt;
-    while (xQueueReceive(inputQueue, &evt, 0) == pdTRUE) {
-    }
+    while (xQueueReceive(inputQueue, &evt, 0) == pdTRUE) {}
     const uint32_t openedAt = millis();
 
     for (;;) {
-        // 等待 TouchTask 送來的事件；不再直接讀取 XPT2046 觸控硬體。
+        // 等待 TouchTask 送來的事件。
         if (xQueueReceive(inputQueue, &evt, pdMS_TO_TICKS(20)) != pdTRUE) {
             continue;
         }

@@ -3,3 +3,10 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+
+# Local credentials for the standalone MQTT receiver example.
+examples/mqtt_version_receiver/include/secrets.h
+examples/mqtt_version_receiver/src/secrets.h
+
+# 正式韌體的 MQTT 帳密只留在本機，不提交到 Git。
+include/Secrets.h

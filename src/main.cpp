@@ -8,10 +8,12 @@
 // 我自己寫的程式庫
 #include "Config.h"
 #include "EventTypes.h"
+#include "App/AppQueues.h"
 #include "UI/PromptDialog.h"
+#include "UI/UiTask.h"
+#include "Network/MqttTask.h"
 #include "UpdateManager/UpdateManager.h"
 #include "Tasks/TouchTask.h"
-#include "Tasks/DisplayTask.h"
 
 // 開源程式庫宣告對象
 TFT_eSPI tft = TFT_eSPI();
@@ -20,8 +22,6 @@ XPT2046_Touchscreen ts(XPT2046_CS, XPT2046_IRQ);
 
 // 我自己封裝的程式庫
 PromptDialog dialog(tft);
-UpdateManager updateManager("http://192.168.0.101:8000/api/v1/config", "1.0.0", tft);
-SystemConfig pendingConfig;
 
 // FreeRTOS 隊列
 QueueHandle_t inputQueue = nullptr;
@@ -41,20 +41,21 @@ void setup() {
     ts.begin(touchSpi);
     ts.setRotation(1);
 
-    constexpr UBaseType_t inputQueueLength = 10;
+    constexpr UBaseType_t inputQueueLength = 10; // FreeRTOS 隊列長度
     inputQueue = xQueueCreate(inputQueueLength, sizeof(InputEvent));
+    const bool appQueuesReady = AppQueues_Create();
 
     // PromptDialog 也使用 TouchTask 的事件，因此必須在首次 show() 前準備完成。
     if (inputQueue == nullptr) {
         Serial.println("Failed to create input queue.");
     } else {
         constexpr UBaseType_t touchTaskPriority = 4;
-        TouchTask_Start(ts, touchTaskPriority, 1);
+        TouchTask_Start(ts, touchTaskPriority, 1); 
     }
 
     // 3. WiFi 連線 (Exit 按鈕 + 逾時跳過)
     WiFiManager wm;
-    wm.setConnectTimeout(8); // 設定嘗試連線已存 Wi-Fi 的逾時時間 (8秒)
+    wm.setConnectTimeout(8);
     
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.setTextSize(2);
@@ -97,7 +98,8 @@ void setup() {
             Serial.println("使用者選擇離線模式");
         }
     }
-
+    
+    /*
     // 4. 檢查更新 (完整保留 OTA 與對話框邏輯)
     if (isConnected) {
         Serial.println("✅ Wi-Fi 連線成功！檢查系統更新中...");
@@ -119,6 +121,7 @@ void setup() {
         Serial.println("❌ 進入離線模式 (跳過更新檢查)");
         WiFi.mode(WIFI_OFF);
     }
+    */
 
     tft.fillScreen(TFT_BLACK);
 
@@ -127,13 +130,21 @@ void setup() {
     if (!SD.begin(SD_CS_PIN))  Serial.println("⚠️ SD 卡掛載失敗或未插入！");
     else                       Serial.println("✅ SD 卡載入完成");
 
-    // 啟動用對話框已結束；之後由 DisplayTask 消費觸控事件並更新畫面。
-    DisplayTask_Start(tft, ts, 3, 1);
+    // 啟動用對話框已結束；之後由 UiTask 消費畫面命令並更新畫面。
+    // 新增的 Queue 建立失敗時不啟動相依 Task，避免空 Queue 造成不可預期的死機。
+    if (!appQueuesReady) {
+        Serial.println("Failed to create application queues.");
+    } else {
+        // TouchTask 優先權為 4；UiTask 為 3，維持觸控回應優先。
+        UiTask_Start(tft, dialog, 3, 1);
+        UpdateManager_Start(tft, 2, 0);
+        MqttTask_Start(2, 0);
+    }
 
     Serial.println("🚀 系統初始化完成，裝置啟動！");
 }
 
 void loop() {
-    // 渲染與睡眠邏輯已移至 DisplayTask，主 loop 休眠防看門狗報警
+    // MQTT、更新協調與正常 UI 都已移至各自 Task；主 loop 保持閒置。
     vTaskDelay(pdMS_TO_TICKS(1000));
 }

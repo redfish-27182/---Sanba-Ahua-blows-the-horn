@@ -1,0 +1,43 @@
+{
+    "activeFile": "first_map.tmx",
+    "expandedProjectPaths": [
+        "."
+    ],
+    "file.lastUsedOpenFilter": "全部檔案 (*)",
+    "fileStates": {
+        "first_map.tmx": {
+            "expandedGroupLayers": [
+                7
+            ],
+            "scale": 1.5,
+            "selectedLayer": 4,
+            "viewCenter": {
+                "x": 266.3333333333333,
+                "y": 233.66666666666666
+            }
+        },
+        "spr_tileset_sunnysideworld.tsx": {
+            "scaleInDock": 2,
+            "scaleInEditor": 1
+        }
+    },
+    "last.imagePath": "C:/Users/user/Downloads/Sunnyside_World_ARCHIVED_ASSETS/Sunnyside World_Tileset_Beta (1)/Sunnyside World",
+    "map.height": 30,
+    "map.lastUsedFormat": "tmx",
+    "map.tileHeight": 16,
+    "map.tileWidth": 16,
+    "map.width": 40,
+    "openFiles": [
+        "first_map.tmx"
+    ],
+    "project": "my_first_map.tiled-project",
+    "recentFiles": [
+        "first_map.tmx",
+        "spr_tileset_sunnysideworld.tsx"
+    ],
+    "tileset.lastUsedFormat": "tsx",
+    "tileset.tileSize": {
+        "height": 16,
+        "width": 16
+    }
+}

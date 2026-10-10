@@ -1,113 +1,111 @@
-#include "UpdateManager.h"
+#include "UpdateManager/UpdateManager.h"
 
-UpdateManager::UpdateManager(String serverUrl, String currentFwVersion, TFT_eSPI &tftScreen)
-    : _tft(tftScreen), _ota(tftScreen), _imgDownloader(tftScreen) {
-    _serverUrl = serverUrl;
-    _currentFwVersion = currentFwVersion;
+#include <cstring>
+
+#include "App/AppMessages.h"
+#include "App/AppQueues.h"
+#include "Config.h"
+#include "Network/MqttTopics.h"
+#include "UpdateManager/GitHubOTA.h"
+
+namespace {
+
+struct UpdateManagerContext {
+    TFT_eSPI *tft;
+};
+
+void sendUiCommand(UiCommandType type, const char *version = "", const char *message = "") {
+    UiCommand command{};
+    command.type = type;
+    strncpy(command.version, version, sizeof(command.version) - 1);
+    strncpy(command.message, message, sizeof(command.message) - 1);
+    xQueueSend(uiCommandQueue, &command, pdMS_TO_TICKS(100));
 }
 
-// 向 FastAPI 請求 JSON 配置檔
-bool UpdateManager::fetchSystemConfig(SystemConfig &outConfig) {
-    if (WiFi.status() != WL_CONNECTED) {
-        Serial.println("❌ [UpdateManager] Wi-Fi 未連線");
-        return false;
-    }
-
-    HTTPClient http;
-    http.begin(_serverUrl);
-    http.setTimeout(4000);
-
-    int httpCode = http.GET();
-    if (httpCode != HTTP_CODE_OK) {
-        Serial.printf("❌ [UpdateManager] HTTP 請求失敗 Code: %d\n", httpCode);
-        http.end();
-        return false;
-    }
-
-    String payload = http.getString();
-    http.end();
-
-    DynamicJsonDocument doc(1024);
-    DeserializationError error = deserializeJson(doc, payload);
-
-    if (error) {
-        Serial.printf("❌ [UpdateManager] JSON 解析失敗: %s\n", error.c_str());
-        return false;
-    }
-
-    // 解析 JSON
-    outConfig.firmwareVersion = doc["firmware_version"].as<String>();
-    outConfig.firmwareUrl     = doc["firmware_url"].as<String>();
-
-    outConfig.imageUrls.clear();
-    JsonArray arr = doc["images"].as<JsonArray>();
-    for (JsonVariant url : arr) {
-        outConfig.imageUrls.push_back(url.as<String>());
-    }
-
-    return true;
+String buildFirmwareUrl(const char *version) {
+    // MQTT 只傳版本字串；GitHub Release 的固定網址規則在這裡組合。
+    return String(GITHUB_RELEASE_BASE_URL) + GITHUB_RELEASE_TAG_PREFIX + version + "/" +
+           GITHUB_FIRMWARE_FILENAME;
 }
 
-// 🎯 【階段一】：檢查版本號是否不同
-bool UpdateManager::hasPendingUpdate(SystemConfig &outConfig) {
-    if (!fetchSystemConfig(outConfig)) {
-        Serial.println("⚠️ [UpdateManager] 無法獲取伺服器配置，跳過更新比對。");
-        return false;
-    }
+bool waitForDecision(const char *version) {
+    // PromptDialog 本身會等待觸控；UpdateManager 只等待 UiTask 回傳選擇。
+    for (;;) {
+        UiResponse response{};
+        xQueueReceive(uiResponseQueue, &response, portMAX_DELAY);
 
-    // 只要伺服器版本號與本地寫死的版本不同，即代表需要更新 (包含圖片與韌體)
-    if (outConfig.firmwareVersion != _currentFwVersion) {
-        Serial.printf("⚡ [UpdateManager] 發現新版本 %s (本地 %s)！\n", 
-                      outConfig.firmwareVersion.c_str(), _currentFwVersion.c_str());
-        return true; 
-    }
-
-    Serial.println("✅ [UpdateManager] 當前已是最新版本，無需更新。");
-    return false;
-}
-
-// 🎯 【階段二】：先載圖片，全成功才跑 OTA
-void UpdateManager::executePendingUpdate(const SystemConfig &config) {
-    Serial.println("🚀 [UpdateManager] 開始執行授權更新作業...");
-
-    int totalImages = config.imageUrls.size();
-    int successCount = 0;
-
-    // 1. 下載所有圖片資產
-    if (totalImages > 0) {
-        Serial.printf("⚡ 準備下載 %d 張圖片資產...\n", totalImages);
-
-        for (int i = 0; i < totalImages; i++) {
-            bool downloadOk = _imgDownloader.downloadToSD(config.imageUrls[i], i + 1, totalImages);
-
-            if (downloadOk) {
-                successCount++;
-            } else {
-                Serial.printf("❌ 第 %d 張圖片下載失敗，中斷本輪更新！\n", i + 1);
-                
-                // 螢幕顯示下載失敗提示
-                _tft.fillScreen(TFT_BLACK);
-                _tft.setTextColor(TFT_RED, TFT_BLACK);
-                _tft.setTextDatum(MC_DATUM);
-                _tft.drawString("Download Failed!", _tft.width() / 2, _tft.height() / 2 - 10, 2);
-                _tft.setTextColor(TFT_WHITE, TFT_BLACK);
-                _tft.drawString("OTA Update Aborted.", _tft.width() / 2, _tft.height() / 2 + 15, 2);
-                delay(2000);
-                break; // 只要有一張失敗就終止，不啟動 OTA
-            }
+        if (strcmp(response.version, version) != 0) {
+            continue;
+        }
+        if (response.type == UiResponseType::UPDATE_ACCEPTED) {
+            return true;
+        }
+        if (response.type == UiResponseType::UPDATE_DECLINED) {
+            return false;
         }
     }
+}
 
-    // 2. 只有在「所有圖片皆下載成功」的情況下，才觸發 OTA 燒錄
-    if (successCount == totalImages) {
-        Serial.println("🎉 所有圖片下載成功！開始發起 GitHub OTA 燒錄...");
-        
-        if (config.firmwareUrl.length() > 0) {
-            _ota.startOTA(config.firmwareUrl);
-        } else {
-            Serial.println("⚠️ 韌體網址空白，跳過 OTA。");
+void waitForOtaScreen(const char *version) {
+    // GitHubOTA 會直接使用 TFT；先確認 UiTask 已停止一般畫面繪製。
+    for (;;) {
+        UiResponse response{};
+        xQueueReceive(uiResponseQueue, &response, portMAX_DELAY);
+        if (response.type == UiResponseType::OTA_SCREEN_READY &&
+            strcmp(response.version, version) == 0) {
+            return;
         }
-    } else {
-        Serial.println("⚠️ 圖片未完整下載，保護機制啟動，取消 OTA 燒錄。");
     }
+}
+
+void updateManagerTask(void *parameter) {
+    const UpdateManagerContext context = *static_cast<UpdateManagerContext *>(parameter);
+    delete static_cast<UpdateManagerContext *>(parameter);
+    GitHubOTA githubOta(*context.tft);
+
+    for (;;) {
+        MqttInboundEvent event{};
+        xQueueReceive(mqttInboundQueue, &event, portMAX_DELAY);
+
+        if (strcmp(event.topic, MQTT_FIRMWARE_VERSION_TOPIC) != 0) {
+            // 未來新增 MQTT 參數時，可在這裡依主題分派給各自的處理器。
+            Serial.printf("Unhandled MQTT topic: %s\n", event.topic);
+            continue;
+        }
+
+        // 發布流程保證版本字串正確，因此不做格式驗證、數字比較或檔案存在檢查。
+        // 只要版本字串和目前韌體不同，就允許使用者進行更新或降版。
+        if (strcmp(event.payload, CURRENT_FIRMWARE_VERSION) == 0) {
+            Serial.printf("Firmware already matches MQTT version: %s\n", event.payload);
+            continue;
+        }
+
+        sendUiCommand(UiCommandType::SHOW_UPDATE_PROMPT, event.payload);
+        if (!waitForDecision(event.payload)) {
+            // 不記錄取消結果；Broker 再發布同一版本時，仍會再次詢問。
+            continue;
+        }
+
+        sendUiCommand(UiCommandType::PREPARE_FOR_OTA, event.payload);
+        waitForOtaScreen(event.payload);
+
+        const String firmwareUrl = buildFirmwareUrl(event.payload);
+        if (!githubOta.startOTA(firmwareUrl)) {
+            // GitHubOTA 已顯示錯誤畫面；再保留三秒提示後回到一般 UI。
+            // 不重試、不記錄失敗；下次 MQTT 訊息來時可重新嘗試。
+            sendUiCommand(UiCommandType::SHOW_NOTICE, event.payload, "OTA failed.");
+            sendUiCommand(UiCommandType::RESUME_NORMAL_UI, event.payload);
+            continue;
+        }
+
+        // 成功時 GitHubOTA 會重開機；此行是異常返回時的保護。
+        sendUiCommand(UiCommandType::RESUME_NORMAL_UI, event.payload);
+    }
+}
+
+}  // namespace
+
+void UpdateManager_Start(TFT_eSPI &tft, UBaseType_t priority, BaseType_t core) {
+    auto *context = new UpdateManagerContext{&tft};
+    xTaskCreatePinnedToCore(updateManagerTask, "UpdateManager", 8192, context, priority, nullptr, core);
 }

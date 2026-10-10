@@ -3,6 +3,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 
+// 觸控事件類型
 enum class InputEventType {
     TOUCH_DOWN,
     DRAG,
@@ -12,12 +13,14 @@ enum class InputEventType {
     RELEASE
 };
 
+// 手勢類型 (用於 Replay 功能)
 enum class GestureCategory {
     NONE,
     TAP_TYPE,
     SWIPE_TYPE
 };
 
+// 輸入事件結構
 struct InputEvent {
     InputEventType type;
     int16_t x;
@@ -28,6 +31,7 @@ struct InputEvent {
     uint32_t timestamp;
 };
 
+// Replay 節點結構
 struct ReplayNode {
     InputEvent event;
     bool played;
