@@ -1,0 +1,86 @@
+"""EMQX TLS 用戶端：負責長時間訂閱、斷線後重連，以及提供發布方法。"""
+
+import asyncio
+import contextlib
+import logging
+import ssl
+
+import aiomqtt
+
+from app.api.mqtt.status_subscriber import handle_status_message
+from app.api.mqtt.topics import DEVICE_STATUS_TOPIC_FILTER
+from app.config.settings import settings
+
+logger = logging.getLogger(__name__)
+
+
+class MqttClient:
+    """將 MQTT 背景工作集中在一個物件，避免 FastAPI 的啟停流程散落。"""
+
+    def __init__(self) -> None:
+        self._client: aiomqtt.Client | None = None
+        self._task: asyncio.Task[None] | None = None
+        self._stop_event = asyncio.Event()
+
+    async def start(self) -> None:
+        """啟動 MQTT 背景訂閱工作；重複呼叫時不建立第二條連線。"""
+        if self._task is None:
+            self._task = asyncio.create_task(self._listen_forever(), name="mqtt-listener")
+
+    async def stop(self) -> None:
+        """取消背景工作，讓 FastAPI 關閉時能安全離開 MQTT 連線。"""
+        self._stop_event.set()
+        if self._task is not None:
+            self._task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._task
+            self._task = None
+
+    async def publish(self, topic: str, payload: str, *, retained: bool = False) -> None:
+        """發布 MQTT 訊息；目前由韌體版本廣播功能使用。"""
+        if self._client is None:
+            raise RuntimeError("MQTT 尚未連線，無法發布訊息。")
+
+        await self._client.publish(topic, payload=payload.encode("utf-8"), qos=1, retain=retained)
+
+    def _ssl_context(self) -> ssl.SSLContext | None:
+        """建立 TLS 驗證環境；公開 CA 預設由作業系統信任清單驗證。"""
+        if not settings.mqtt_tls_enabled:
+            return None
+
+        context = ssl.create_default_context()
+        if settings.mqtt_ca_cert_path:
+            context.load_verify_locations(cafile=str(settings.mqtt_ca_cert_path))
+        return context
+
+    async def _listen_forever(self) -> None:
+        """訂閱設備狀態，斷線時每五秒重試，直到服務關閉。"""
+        while not self._stop_event.is_set():
+            try:
+                async with aiomqtt.Client(
+                    hostname=settings.mqtt_host,
+                    port=settings.mqtt_port,
+                    username=settings.mqtt_username,
+                    password=settings.mqtt_password,
+                    identifier=settings.mqtt_client_id,
+                    tls_context=self._ssl_context(),
+                ) as client:
+                    self._client = client
+                    await client.subscribe(DEVICE_STATUS_TOPIC_FILTER, qos=1)
+                    logger.info("已訂閱 MQTT topic：%s", DEVICE_STATUS_TOPIC_FILTER)
+
+                    async for message in client.messages:
+                        await handle_status_message(str(message.topic), bytes(message.payload))
+            except asyncio.CancelledError:
+                raise
+            except aiomqtt.MqttError as error:
+                logger.warning("MQTT 連線中斷：%s；五秒後重試。", error)
+            except Exception:
+                logger.exception("MQTT 背景工作發生未預期錯誤；五秒後重試。")
+            finally:
+                self._client = None
+
+            try:
+                await asyncio.wait_for(self._stop_event.wait(), timeout=5)
+            except TimeoutError:
+                pass
