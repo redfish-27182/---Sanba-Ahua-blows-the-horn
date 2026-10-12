@@ -1,9 +1,10 @@
 """FastAPI 啟動點：目前只負責啟停 MQTT，不先加入 HTTP 路由。"""
 
+# 第三方模組
 from contextlib import asynccontextmanager
-
 from fastapi import FastAPI
 
+# 自建模組
 from app.api.mqtt.client import MqttClient
 
 
@@ -11,7 +12,7 @@ from app.api.mqtt.client import MqttClient
 async def lifespan(app: FastAPI):
     """讓 MQTT 連線跟著 FastAPI 服務一起啟動與關閉。"""
     mqtt_client = MqttClient()
-    app.state.mqtt_client = mqtt_client
+    app.state.mqtt_client = mqtt_client 
     await mqtt_client.start()
     try:
         yield
