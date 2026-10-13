@@ -19,3 +19,7 @@ __pycache__/
 
 # ESP32 local credentials must never be committed.
 src/Network/secrets.h
+
+# Local-only examples and map assets; keep them on this computer, not GitHub.
+/examples/
+/map/
