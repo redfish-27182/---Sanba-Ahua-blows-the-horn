@@ -1,6 +1,8 @@
 """集中管理目前使用的 MQTT topic，避免字串散落在程式各處。"""
 
-DEVICE_STATUS_TOPIC_FILTER = "ahou/device_status/+/status"
+ROOT_TOPIC_FILTER = "ahou/#"
+
+FIRMWARE_VERSION_TOPIC = "ahou/firmware_version"
 DEVICE_STATUS_TOPIC_PREFIX = "ahou/device_status/"
 DEVICE_STATUS_TOPIC_SUFFIX = "/status"
 

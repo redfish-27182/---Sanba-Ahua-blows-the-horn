@@ -7,8 +7,8 @@ import ssl
 
 import aiomqtt # aiomqtt 是第三方的非同步 MQTT 客戶端，支援 asyncio。
 
-from app.api.mqtt.status_subscriber import handle_status_message
-from app.api.mqtt.topics            import DEVICE_STATUS_TOPIC_FILTER
+from app.mqtt.router                import route_message
+from app.mqtt.topics                import ROOT_TOPIC_FILTER
 from app.config.settings            import settings
 
 logger = logging.getLogger(__name__)
@@ -86,12 +86,12 @@ class MqttClient:
                     tls_context = self._ssl_context(),
                 ) as client:
                     self._client = client
-                    await client.subscribe( DEVICE_STATUS_TOPIC_FILTER, qos=1 )
+                    await client.subscribe( ROOT_TOPIC_FILTER, qos=1 )
 
-                    logger.info("已訂閱 MQTT topic：%s", DEVICE_STATUS_TOPIC_FILTER)
+                    logger.info("已訂閱 MQTT topic：%s", ROOT_TOPIC_FILTER)
 
                     async for message in client.messages:
-                        await handle_status_message(str(message.topic), bytes(message.payload))
+                        await route_message(str(message.topic), bytes(message.payload))
             
             except asyncio.CancelledError:
                 raise

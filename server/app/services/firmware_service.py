@@ -1,9 +1,7 @@
 """韌體版本發布的應用服務。"""
 
-from app.api.mqtt.client import MqttClient
-
-
-FIRMWARE_VERSION_TOPIC = "ahou/firmware_version"
+from app.mqtt.client import MqttClient
+from app.mqtt.topics import FIRMWARE_VERSION_TOPIC
 
 
 async def publish_firmware_version(mqtt_client: MqttClient, version: str) -> None:

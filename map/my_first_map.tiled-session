@@ -12,12 +12,12 @@
             "scale": 1.5,
             "selectedLayer": 4,
             "viewCenter": {
-                "x": 266.3333333333333,
-                "y": 233.66666666666666
+                "x": 253.66666666666666,
+                "y": 221.66666666666666
             }
         },
         "spr_tileset_sunnysideworld.tsx": {
-            "scaleInDock": 2,
+            "scaleInDock": 1,
             "scaleInEditor": 1
         }
     },

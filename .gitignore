@@ -10,3 +10,12 @@ examples/mqtt_version_receiver/src/secrets.h
 
 # 正式韌體的 MQTT 帳密只留在本機，不提交到 Git。
 include/Secrets.h
+
+# Python backend local settings and virtual environments.
+.env
+server/.venv/
+__pycache__/
+*.py[cod]
+
+# ESP32 local credentials must never be committed.
+src/Network/secrets.h
