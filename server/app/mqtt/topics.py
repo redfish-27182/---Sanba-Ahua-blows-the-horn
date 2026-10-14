@@ -1,18 +1,15 @@
-"""集中管理目前使用的 MQTT topic，避免字串散落在程式各處。"""
+"""集中管理 MQTT topic 路徑，避免其他模組自行拼接字串。"""
 
-ROOT_TOPIC_FILTER = "ahou/#"
+ROOT_TOPIC = "ahou"
 
-FIRMWARE_VERSION_TOPIC = "ahou/firmware_version"
-DEVICE_STATUS_TOPIC_PREFIX = "ahou/device_status/"
-DEVICE_STATUS_TOPIC_SUFFIX = "/status"
+# ESP32 發送給後端的事件；MQTT client 只訂閱這個分支。
+EVENTS_TOPIC_ROOT = f"{ROOT_TOPIC}/events"
+DEVICE_EVENTS_TOPIC_ROOT = f"{EVENTS_TOPIC_ROOT}/devices"
+EVENTS_TOPIC_FILTER = f"{EVENTS_TOPIC_ROOT}/#"
 
+# 後端發送給 ESP32 的指令；目前不會由後端訂閱。
+COMMANDS_TOPIC_ROOT = f"{ROOT_TOPIC}/commands"
+BROADCAST_COMMANDS_TOPIC_ROOT = f"{COMMANDS_TOPIC_ROOT}/broadcast"
+DEVICE_COMMANDS_TOPIC_ROOT = f"{COMMANDS_TOPIC_ROOT}/devices"
 
-def device_id_from_status_topic(topic: str) -> str | None:
-    """從 ahou/device_status/{device_id}/status 取出 device_id。"""
-    if not topic.startswith(DEVICE_STATUS_TOPIC_PREFIX) or not topic.endswith(
-        DEVICE_STATUS_TOPIC_SUFFIX
-    ):
-        return None
-
-    device_id = topic[len(DEVICE_STATUS_TOPIC_PREFIX) : -len(DEVICE_STATUS_TOPIC_SUFFIX)]
-    return device_id if device_id and "/" not in device_id else None
+FIRMWARE_VERSION_TOPIC = f"{BROADCAST_COMMANDS_TOPIC_ROOT}/firmware/version"

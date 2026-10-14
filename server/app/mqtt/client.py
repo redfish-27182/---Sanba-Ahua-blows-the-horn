@@ -1,20 +1,21 @@
-"""EMQX TLS 用戶端：負責長時間訂閱、斷線後重連，以及提供發布方法。"""
+"""MQTT 用戶端：負責長時間訂閱、斷線後重連，以及提供發布方法。"""
 
 import asyncio 
 import contextlib 
 import logging 
 import ssl 
 
-import aiomqtt # aiomqtt 是第三方的非同步 MQTT 客戶端，支援 asyncio。
+import aiomqtt
 
 from app.mqtt.router                import route_message
-from app.mqtt.topics                import ROOT_TOPIC_FILTER
+from app.mqtt.topics                import EVENTS_TOPIC_FILTER
 from app.config.settings            import settings
 
 logger = logging.getLogger(__name__)
 
 
 class MqttClient:
+    """MQTT 用戶端：負責長時間訂閱、斷線後重連，以及提供發布方法。"""
 
     def __init__(self) -> None:
         self._client: aiomqtt.Client | None = None
@@ -22,7 +23,7 @@ class MqttClient:
         self._stop_event = asyncio.Event()
 
     async def start(self) -> None:
-        """啟動 MQTT 背景訂閱工作；重複呼叫時不建立第二條連線。"""
+        """MQTT，啟動!!"""
 
         if self._task is None:
             self._task = asyncio.create_task(
@@ -31,7 +32,7 @@ class MqttClient:
             )
 
     async def stop(self) -> None:
-        """取消背景工作，讓 FastAPI 關閉時能安全離開 MQTT 連線。"""
+        """取消背景工作"""
         self._stop_event.set()
         if self._task is not None:
             self._task.cancel()
@@ -86,9 +87,9 @@ class MqttClient:
                     tls_context = self._ssl_context(),
                 ) as client:
                     self._client = client
-                    await client.subscribe( ROOT_TOPIC_FILTER, qos=1 )
+                    await client.subscribe( EVENTS_TOPIC_FILTER, qos=1 )
 
-                    logger.info("已訂閱 MQTT topic：%s", ROOT_TOPIC_FILTER)
+                    logger.info("已訂閱 MQTT topic：%s", EVENTS_TOPIC_FILTER)
 
                     async for message in client.messages:
                         await route_message(str(message.topic), bytes(message.payload))
