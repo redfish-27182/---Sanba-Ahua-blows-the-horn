@@ -21,6 +21,7 @@ class MqttClient:
         self._client: aiomqtt.Client | None = None
         self._task: asyncio.Task[None] | None = None
         self._stop_event = asyncio.Event()
+        self._connected_event = asyncio.Event()
 
     async def start(self) -> None:
         """MQTT，啟動!!"""
@@ -40,6 +41,11 @@ class MqttClient:
             with contextlib.suppress(asyncio.CancelledError):
                 await self._task
             self._task = None
+
+    async def wait_until_connected(self) -> None:
+        """等待 MQTT 連線與 events 訂閱完成。"""
+
+        await self._connected_event.wait()
 
     async def publish(
         self,
@@ -90,6 +96,7 @@ class MqttClient:
                     await client.subscribe( EVENTS_TOPIC_FILTER, qos=1 )
 
                     logger.info("已訂閱 MQTT topic：%s", EVENTS_TOPIC_FILTER)
+                    self._connected_event.set()
 
                     async for message in client.messages:
                         await route_message(str(message.topic), bytes(message.payload))
@@ -102,6 +109,7 @@ class MqttClient:
                 logger.exception("MQTT 背景工作發生未預期錯誤；五秒後重試。")
             finally:
                 self._client = None
+                self._connected_event.clear()
 
             try:
                 await asyncio.wait_for(

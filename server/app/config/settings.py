@@ -3,6 +3,7 @@
 from pathlib import Path
 from urllib.parse import quote_plus
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -28,6 +29,15 @@ class Settings(BaseSettings):
     mqtt_tls_enabled: bool = True
     mqtt_ca_cert_path: Path | None = None
     mqtt_client_id: str = "sanba-backend"
+
+    @field_validator("mqtt_ca_cert_path", mode="before")
+    @classmethod
+    def empty_mqtt_ca_cert_path_is_none(cls, value: object) -> object:
+        """避免空字串被 Path 轉成目前資料夾 WindowsPath('.')。"""
+
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
 
     @property
     def database_url(self) -> str:
