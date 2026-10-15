@@ -1,4 +1,5 @@
 #include "TouchTask.h"
+#include "PowerManager.h"
 #include "../Config.h"
 #include "../EventTypes.h"
 
@@ -7,6 +8,7 @@ static XPT2046_Touchscreen *pTs = nullptr; // 指向呼叫端建立的觸控物�
 
 // FreeRTOS 工作本體：讀取觸控資料、消除雜訊，並轉換成輸入事件。
 static void touchTaskCode(void *pvParameters) {
+    bool wakeOnlyTouch = false;       // 喚醒背光的那一次觸碰不可同時操作 UI。
     bool isPressed = false;           // 目前是否處於按壓狀態
     uint32_t pressStartTime = 0;      // 觸控按下的時間戳記
     int16_t  startX = 0, startY = 0;  // 觸控按下的起始位置
@@ -21,6 +23,12 @@ static void touchTaskCode(void *pvParameters) {
 
             // 原始值在 5ms 內變動超過 200，視為雜訊。
             if (abs(p1.x - p2.x) < 200 && abs(p1.y - p2.y) < 200) {
+                // 螢幕熄滅時，第一次有效觸碰只負責喚醒背光。
+                if (wakeOnlyTouch || PowerManager_HandleTouchActivity()) {
+                    wakeOnlyTouch = true;
+                    continue;
+                }
+
                 // 取兩次樣本的平均，再以此觸控面板的校正範圍映射至 320 x 240 螢幕。
                 int16_t curX = map((p1.x + p2.x) / 2, 200, 3700, 0, 320);
                 int16_t curY = map((p1.y + p2.y) / 2, 240, 3800, 0, 240);
@@ -54,6 +62,9 @@ static void touchTaskCode(void *pvParameters) {
                 }
             }
         } else {
+            // 觸碰已完全放開；下一次觸碰才可以送給 UI。
+            wakeOnlyTouch = false;
+
             if (isPressed) {
                 // 手指離開面板：以停留時間與「起點到最後位置」的距離判定手勢。
                 uint32_t now = millis();

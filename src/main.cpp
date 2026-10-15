@@ -14,6 +14,7 @@
 #include "Network/MqttTask.h"
 #include "UpdateManager/UpdateManager.h"
 #include "Tasks/TouchTask.h"
+#include "Tasks/PowerManager.h"
 
 // 開源程式庫宣告對象
 TFT_eSPI tft = TFT_eSPI();
@@ -119,6 +120,10 @@ void setup() {
         UpdateManager_Start(tft, 2, 0);  // UpdateManager，啟動!!!!!
         MqttTask_Start(2, 0);            // MqttTask，啟動!!!!!
     }
+
+    // TouchTask 會在每次有效觸碰時更新閒置時間。
+    // 短暫閒置只關閉背光；長時間閒置才進入 deep sleep。
+    PowerManager_Start(1, 1);
 
     Serial.println("🚀 系統初始化完成，原神啟動！");
 }

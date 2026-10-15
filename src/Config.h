@@ -19,4 +19,6 @@ constexpr char GITHUB_RELEASE_TAG_PREFIX[] = "v"; // GitHub Release 的標籤前
 constexpr char GITHUB_FIRMWARE_FILENAME[] = "firmware.bin";
 
 // 系統參數
-#define SLEEP_TIMEOUT_MS  20000  // 20 秒無操作進入睡眠
+// 電源管理：先關閉背光，長時間沒有操作才進入 deep sleep。
+constexpr uint32_t DISPLAY_SLEEP_TIMEOUT_MS = 20000;        // 20 秒
+constexpr uint32_t DEEP_SLEEP_TIMEOUT_MS = 5 * 60 * 1000;   // 5 分鐘

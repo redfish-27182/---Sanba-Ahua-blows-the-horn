@@ -7,7 +7,7 @@
 #include "App/AppQueues.h"
 #include "Network/MqttTlsClient.h"
 #include "Network/MqttTopics.h"
-#include "Secrets.h"
+#include "secrets.h"
 
 namespace {
 
@@ -27,6 +27,7 @@ void sendUiState(UiCommandType type) {
     xQueueSend(uiCommandQueue, &command, 0);
 }
 
+// MQTT callback 會在 mqttClient.loop() 被呼叫時觸發，並且在同一個 Task 內執行。
 void messageCallback(char *topic, byte *payload, unsigned int length) {
     // PubSubClient 的 payload 不是以 \0 結尾，因此必須明確複製並補結尾。
     // callback 在 MQTT Task 內被呼叫，只做無阻塞 Queue 轉送。
@@ -70,25 +71,29 @@ bool connectAndSubscribe(char *statusTopic, size_t statusTopicLength) {
     return true;
 }
 
+// 將 publish queue 的訊息發佈出去。
 void drainPublishQueue() {
     MqttPublishRequest request{};
     while (xQueueReceive(mqttPublishQueue, &request, 0) == pdTRUE) {
         if (!mqttClient.publish(request.topic, request.payload, request.retained)) {
-            Serial.println("MQTT publish failed; request dropped.");
+            Serial.println("MQTT publish 失敗了~ 哭哭");
         }
     }
 }
 
+// MQTT Task 的主函式。
 void mqttTask(void *) {
     mqttClient.begin(MQTT_HOST, MQTT_PORT, messageCallback);
 
-    bool clockSynchronized = false;
-    bool wifiReportedOnline = false;
-    uint8_t retryIndex = 0;
-    uint32_t nextAttemptAt = 0;
-    char statusTopic[APP_TOPIC_LENGTH]{};
+    bool clockSynchronized = false;       // 是否已經同步過時間，避免 TLS 驗證失敗
+    bool wifiReportedOnline = false;      // Wi-Fi 連線狀態是否已經回報給 UiTask
+    uint8_t retryIndex = 0;               // 連線失敗時的等待時間索引
+    uint32_t nextAttemptAt = 0;           // 下一次嘗試連線的時間點（毫秒）
+    char statusTopic[APP_TOPIC_LENGTH]{}; // 用來發佈 retained online/offline 狀態的主題
 
     for (;;) {
+
+        // Wi-Fi 尚未連線，先等待 1 秒後再檢查。
         if (WiFi.status() != WL_CONNECTED) {
             if (mqttClient.connected()) {
                 mqttClient.disconnect();
@@ -103,12 +108,14 @@ void mqttTask(void *) {
             vTaskDelay(pdMS_TO_TICKS(1000));
             continue;
         }
-
+        
+        // Wi-Fi 已經連線，且尚未回報給 UiTask。之後會刪除
         if (!wifiReportedOnline) {
             sendUiState(UiCommandType::SET_WIFI_ONLINE);
             wifiReportedOnline = true;
         }
-
+        
+        // 同步時間，避免 TLS 驗證失敗。
         if (!clockSynchronized) {
             clockSynchronized = mqttClient.synchronizeClock();
             if (!clockSynchronized) {
@@ -118,7 +125,8 @@ void mqttTask(void *) {
                 continue;
             }
         }
-
+        
+        // MQTT 尚未連線，嘗試連線並訂閱主題。
         if (!mqttClient.connected()) {
             if (millis() >= nextAttemptAt) {
                 if (connectAndSubscribe(statusTopic, sizeof(statusTopic))) {
@@ -132,8 +140,8 @@ void mqttTask(void *) {
             vTaskDelay(pdMS_TO_TICKS(100));
             continue;
         }
-
-        drainPublishQueue();
+        
+        drainPublishQueue(); // 將 publish queue 的訊息發佈出去。
         mqttClient.loop();
         vTaskDelay(pdMS_TO_TICKS(20));
     }
@@ -141,6 +149,15 @@ void mqttTask(void *) {
 
 }  // namespace
 
+// MqttTask 啟動!!!
 void MqttTask_Start(UBaseType_t priority, BaseType_t core) {
-    xTaskCreatePinnedToCore(mqttTask, "MqttTask", 6144, nullptr, priority, nullptr, core);
+    xTaskCreatePinnedToCore(
+        mqttTask, 
+        "MqttTask", 
+        6144, 
+        nullptr, 
+        priority, 
+        nullptr, 
+        core
+    );
 }
