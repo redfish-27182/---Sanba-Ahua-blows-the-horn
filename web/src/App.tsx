@@ -1,9 +1,7 @@
 import BackendAdminPage from './pages/BackendAdminPage'
 
 function App() {
-    return (
-        <BackendAdminPage />
-    )
+    return <BackendAdminPage />
 }
 
 export default App

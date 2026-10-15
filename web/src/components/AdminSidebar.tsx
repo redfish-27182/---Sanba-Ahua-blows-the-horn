@@ -1,6 +1,20 @@
-import { Cpu, Upload } from 'lucide-react'
+import { Cpu, Upload, type LucideIcon } from 'lucide-react'
 
-const navigationItems = [
+export type AdminSection = 'devices' | 'firmware'
+
+interface AdminSidebarProps {
+    activeSection: AdminSection
+    onSectionChange: (section: AdminSection) => void
+}
+
+interface NavigationItem {
+    id: AdminSection
+    label: string
+    Icon: LucideIcon
+    iconClassName: string
+}
+
+const navigationItems: NavigationItem[] = [
     {
         id: 'devices',
         label: '設備',
@@ -15,7 +29,7 @@ const navigationItems = [
     },
 ]
 
-function AdminSidebar({ activeSection, onSectionChange }) {
+function AdminSidebar({ activeSection, onSectionChange }: AdminSidebarProps) {
     return (
         <aside className="w-full shrink-0 rounded-[28px] border border-white/80 bg-white/70 p-3 shadow-[0_12px_32px_rgba(60,60,67,0.08)] backdrop-blur-sm md:w-60">
             <nav aria-label="後台功能" className="flex gap-2 md:flex-col">
