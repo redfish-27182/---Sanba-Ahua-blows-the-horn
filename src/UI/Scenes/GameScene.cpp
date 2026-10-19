@@ -1,5 +1,11 @@
 #include "UI/Scenes/GameScene.h"
 
+// 準備遊戲畫面使用的渲染資源。
+// 無輸入；回傳：bool，是否成功。
+bool GameScene::initialize() {
+    return renderer.initialize();
+}
+
 // 利用相鄰觸控座標計算位移，避免重複累加起點位移。
 // event：const InputEvent&，觸控事件。
 void GameScene::handleInput(const InputEvent &event) {

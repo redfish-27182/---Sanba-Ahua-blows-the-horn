@@ -8,6 +8,10 @@ public:
     // map：MapData&，地圖；display：DisplayDriver&，螢幕介面。
     GameScene(MapData &map, DisplayDriver &display) : map(map), display(display) {}
 
+    // 進入遊戲時配置可重複使用的渲染緩衝區。
+    // 無輸入；回傳：bool，是否成功配置。
+    bool initialize();
+
     // 接收觸控事件，計算拖曳位移。
     // event：const InputEvent&，觸控事件。
     void handleInput(const InputEvent &event);
