@@ -14,6 +14,7 @@ public:
     // 傳送一條 RGB565 畫面。
     // y、height：int，畫面位置及高度；pixels：uint16_t*，320 像素寬的資料；
     void drawStrip(int y, int height, uint16_t *pixels);
+    
 private:
     TFT_eSPI &tft;
 };

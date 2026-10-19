@@ -28,5 +28,5 @@ private:
     MapLoader loader;
     MapData map;
     std::unique_ptr<GameScene> game;
-    const char *failureMessage = nullptr;
+    const char *failureMessage = nullptr; // 記錄載入或繪製失敗的訊息，供重畫時顯示。
 };

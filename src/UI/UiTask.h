@@ -6,4 +6,9 @@
 #include "UI/PromptDialog.h"
 
 // UiTask ，啟動!!! 。
-void UiTask_Start(TFT_eSPI &tft, PromptDialog &dialog, UBaseType_t priority, BaseType_t core);
+void UiTask_Start(
+    TFT_eSPI &tft, 
+    PromptDialog &dialog, 
+    UBaseType_t priority, 
+    BaseType_t core
+);
