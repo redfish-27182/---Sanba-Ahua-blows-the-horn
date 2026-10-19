@@ -117,7 +117,6 @@ void setup() {
         Serial.println("Failed to create application queues.");
     } else {
         UiTask_Start(tft, dialog, 3, 1); // UiTask，啟動!!!!!
-        UpdateManager_Start(tft, 2, 0);  // UpdateManager，啟動!!!!!
         MqttTask_Start(2, 0);            // MqttTask，啟動!!!!!
     }
 
@@ -129,6 +128,6 @@ void setup() {
 }
 
 void loop() {
-    // MQTT、更新協調與正常 UI 都已移至各自 Task；主 loop 保持閒置。
+    // MQTT 與 UI 分別執行；更新流程由 UI Task 處理，主 loop 保持閒置。
     vTaskDelay(pdMS_TO_TICKS(1000));
 }

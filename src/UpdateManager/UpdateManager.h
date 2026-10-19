@@ -1,7 +1,9 @@
 #pragma once
-
 #include <TFT_eSPI.h>
-#include <freertos/FreeRTOS.h>
+#include "App/AppMessages.h"
+#include "UI/PromptDialog.h"
 
-// UpdateManager Task：接收 MQTT 版本、詢問使用者，並交給既有 GitHubOTA 更新。
-void UpdateManager_Start(TFT_eSPI &tft, UBaseType_t priority, BaseType_t core);
+// 由 UI Task 處理 MQTT 版本、詢問使用者並執行既有 OTA。
+// event：const MqttInboundEvent&，訊息；tft：TFT_eSPI&，螢幕；dialog：PromptDialog&，對話框。
+// 回傳：bool，是否顯示過提示或更新畫面。
+bool UpdateManager_Handle(const MqttInboundEvent &event, TFT_eSPI &tft, PromptDialog &dialog);

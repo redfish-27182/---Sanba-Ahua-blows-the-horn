@@ -7,7 +7,6 @@
 extern QueueHandle_t mqttInboundQueue;
 extern QueueHandle_t mqttPublishQueue;
 extern QueueHandle_t uiCommandQueue; 
-extern QueueHandle_t uiResponseQueue;
 
 // 在建立 Task 前呼叫；任一 Queue 建立失敗會回傳 false。
 bool AppQueues_Create();
