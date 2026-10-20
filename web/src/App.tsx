@@ -1,7 +1,7 @@
-import BackendAdminPage from './pages/BackendAdminPage'
+import AppRouter from './AppRouter'
 
 function App() {
-    return <BackendAdminPage />
+    return <AppRouter />
 }
 
 export default App
