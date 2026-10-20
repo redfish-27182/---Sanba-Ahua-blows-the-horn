@@ -9,12 +9,10 @@ function SiteHeader() {
                 <Link to="/" className="font-bold text-slate-900 hover:bg-blue-200 hover:text-blue-900 rounded-lg px-2 py-1 transition-colors">
                     <span className="text-2xl sm:text-xl px-2">
                         三八阿花
-                    </span>
-                    
+                    </span>  
                     <span className="text-2xl sm:text-sm">
                         官方網站
                     </span>
-
                 </Link>
 
                 <NavigationMenu />

@@ -6,7 +6,9 @@ function PublicLayout() {
     return (
         <div className="min-h-svh bg-slate-50 text-slate-900">
             <SiteHeader />
-            <main><Outlet /></main>
+            <main>
+                <Outlet /> 
+            </main>
         </div>
     )
 }
