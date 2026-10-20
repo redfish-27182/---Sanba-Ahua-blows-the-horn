@@ -16,19 +16,30 @@ bool SceneManager::startGame() {
     }
 
     // 建立遊戲畫面，失敗時顯示錯誤訊息。
-    Serial.printf("[GameScene] allocate %u bytes; free heap=%u, largest block=%u\n",
-        static_cast<unsigned>(sizeof(GameScene)), ESP.getFreeHeap(), ESP.getMaxAllocHeap());
+    Serial.printf(
+        "[GameScene] allocate %u bytes; free heap=%u, largest block=%u\n",
+        static_cast<unsigned>(sizeof(GameScene)), // 需要分配的記憶體大小
+        ESP.getFreeHeap(),    // 取得可用的堆積記憶體大小
+        ESP.getMaxAllocHeap() // 取得可一次分配的最大堆積記憶體區塊大小
+    );
+    
     game.reset(new (std::nothrow) GameScene(map, display));
     if (!game) { 
-        Serial.printf("[GameScene] allocation failed; free heap=%u, largest block=%u\n",
-            ESP.getFreeHeap(), ESP.getMaxAllocHeap());
+        Serial.printf(
+            "[GameScene] allocation failed; free heap=%u, largest block=%u\n",
+            ESP.getFreeHeap(), 
+            ESP.getMaxAllocHeap()
+        );
         failureMessage = "Not enough memory for game."; 
         loading.show(display, failureMessage); 
         return false; 
     }
+    Serial.printf(
+        "[GameScene] allocation succeeded; free heap=%u, largest block=%u\n",
+        ESP.getFreeHeap(), 
+        ESP.getMaxAllocHeap()
+    );
 
-    Serial.printf("[GameScene] allocation succeeded; free heap=%u, largest block=%u\n",
-        ESP.getFreeHeap(), ESP.getMaxAllocHeap());
     if (!game->initialize()) {
         game.reset();
         failureMessage = "Not enough memory to render.";

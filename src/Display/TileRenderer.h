@@ -20,7 +20,7 @@ public:
     );
 
 private:
-    static constexpr int stripWidth = 320;
-    static constexpr int stripHeight = 4;
-    std::unique_ptr<uint16_t[]> strip;
+    static constexpr int stripWidth = 320; // 每次繪製的圖層寬度，應與螢幕寬度相同。
+    static constexpr int stripHeight = 4;  // 每次繪製的圖層高度，應為 4 的倍數以符合 DMA 傳輸要求。
+    std::unique_ptr<uint16_t[]> strip; // 以 RGB565 格式存放每次繪製的圖層，大小為 stripWidth * stripHeight。
 };

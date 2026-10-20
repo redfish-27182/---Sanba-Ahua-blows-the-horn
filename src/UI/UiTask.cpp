@@ -41,8 +41,20 @@ void uiTask(void *parameter) {
 
 // 啟動包含遊戲與 OTA 流程的 UI Task。
 // tft：TFT_eSPI&，螢幕；dialog：PromptDialog&，提示視窗；priority：UBaseType_t，優先權；core：BaseType_t，核心。
-// 無回傳值。
-void UiTask_Start(TFT_eSPI &tft, PromptDialog &dialog, UBaseType_t priority, BaseType_t core) {
+void UiTask_Start(
+    TFT_eSPI &tft, 
+    PromptDialog &dialog, 
+    UBaseType_t priority, 
+    BaseType_t core
+) {
     auto *context = new UiTaskContext{&tft, &dialog};
-    xTaskCreatePinnedToCore(uiTask, "UiTask", 12288, context, priority, nullptr, core);
+    xTaskCreatePinnedToCore(
+        uiTask, 
+        "UiTask", 
+        12288, 
+        context, 
+        priority, 
+        nullptr, 
+        core
+    );
 }
