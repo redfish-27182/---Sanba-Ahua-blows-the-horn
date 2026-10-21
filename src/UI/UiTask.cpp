@@ -4,6 +4,7 @@
 #include "Display/DisplayDriver.h"
 #include "EventTypes.h"
 #include "UI/SceneManager.h"
+#include "UI/Scenes/FontTestScene.h"
 #include "UpdateManager/UpdateManager.h"
 
 namespace {
@@ -12,11 +13,17 @@ struct UiTaskContext { TFT_eSPI *tft; PromptDialog *dialog; };
 // 執行畫面、觸控與 OTA 流程；對話框及 OTA 執行時遊戲自然暫停。
 // parameter：void*，啟動時傳入的 UiTaskContext；無回傳值。
 void uiTask(void *parameter) {
+    
+    // 取得啟動時傳入的 TFT 與 PromptDialog，並釋放記憶體。
     const UiTaskContext context = *static_cast<UiTaskContext *>(parameter);
     delete static_cast<UiTaskContext *>(parameter);
     DisplayDriver display(*context.tft);
     SceneManager scenes(display);
+    FontTestScene fontTest(*context.tft);
+    
+    bool fontTestOpen = false;
     scenes.startGame();
+    
     // 載入期間累積的觸控不應觸發遊戲。
     InputEvent input{};
     while (inputQueue && xQueueReceive(inputQueue, &input, 0) == pdTRUE) {}
@@ -25,15 +32,30 @@ void uiTask(void *parameter) {
         if (xQueueReceive(mqttInboundQueue, &event, 0) == pdTRUE) {
             if (UpdateManager_Handle(event, *context.tft, *context.dialog)) {
                 while (inputQueue && xQueueReceive(inputQueue, &input, 0) == pdTRUE) {}
-                scenes.redraw();
+                if (fontTestOpen) fontTest.draw();
+                else scenes.redraw();
             }
         }
         UiCommand command{};
         // 現在狀態指令仍接收，但遊戲畫面暫不顯示連線狀態。
         while (xQueueReceive(uiCommandQueue, &command, 0) == pdTRUE) {}
         // 有界處理事件，避免快速觸控造成畫面完全無法更新。
-        for (int i = 0; inputQueue && i < 10 && xQueueReceive(inputQueue, &input, 0) == pdTRUE; ++i) scenes.handleInput(input);
-        scenes.update();
+        for (int i = 0; inputQueue && i < 10 && xQueueReceive(inputQueue, &input, 0) == pdTRUE; ++i) {
+            if (fontTestOpen) {
+                if (input.type == InputEventType::TAP) {
+                    fontTest.close();
+                    fontTestOpen = false;
+                    scenes.redraw();
+                }
+            } else if (input.type == InputEventType::LONG_PRESS) {
+                // 長按暫時進入獨立測試畫面；遊戲不再更新，點擊可返回。
+                fontTestOpen = true;
+                fontTest.open();
+            } else {
+                scenes.handleInput(input);
+            }
+        }
+        if (!fontTestOpen) scenes.update();
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
