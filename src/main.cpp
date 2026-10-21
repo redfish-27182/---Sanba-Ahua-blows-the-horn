@@ -15,6 +15,7 @@
 #include "UpdateManager/UpdateManager.h"
 #include "Tasks/TouchTask.h"
 #include "Tasks/PowerManager.h"
+#include "Font/SystemText.h"
 
 // 開源程式庫宣告對象
 TFT_eSPI tft = TFT_eSPI();
@@ -37,6 +38,12 @@ void setup() {
     tft.init();
     tft.setRotation(1);
     tft.fillScreen(TFT_BLACK);
+
+    // Wi-Fi 提示之前先掛載 SD 並載入共用系統字庫。
+    SPI.begin();
+    if (!SD.begin(SD_CS_PIN)) Serial.println("⚠️ SD 卡掛載失敗或未插入！");
+    else if (!SystemText_Load()) Serial.println("⚠️ 系統字庫載入失敗，改用英文提示。");
+    else Serial.println("✅ SD 卡及系統字庫載入完成");
 
     // -------------------2. 初始化獨立觸控 SPI -------------------//
 
@@ -63,11 +70,7 @@ void setup() {
     WiFiManager wm;
     wm.setConnectTimeout(8);
     
-    tft.setTextColor(TFT_WHITE, TFT_BLACK);
-    tft.setTextSize(2);
-    tft.setCursor(10, 10);
-    tft.println("Connecting to saved WiFi...");
-    tft.setTextSize(1);
+    SystemText_Draw(tft, "正在連線 WiFi...", "Connecting to saved WiFi...", 10, 10, 300, 40, TFT_WHITE);
     
     bool isConnected = wm.autoConnect();
 
@@ -76,17 +79,13 @@ void setup() {
         Serial.println("⚠️ 無法連線至已儲存的 Wi-Fi");
 
         // 呼叫PromptDialog 選擇框
-        String wifiMsg = "Failed to connect WiFi.\nOpen AP Config Portal\nto configure network?";
-        bool wantConfig = dialog.show("WIFI SETUP", wifiMsg, "[A] CONFIG", "[B] OFFLINE");
+        String wifiMsg = SystemText_Choose("WiFi 連線失敗\n要設定網路嗎？", "WiFi failed.\nConfigure network?");
+        bool wantConfig = dialog.show(SystemText_Choose("WiFi 設定", "WIFI SETUP"), wifiMsg,
+                                      SystemText_Choose("設定", "CONFIG"), SystemText_Choose("離線", "OFFLINE"));
 
         if (wantConfig) {
             tft.fillScreen(TFT_BLACK);
-            tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-            tft.setTextSize(1);
-            tft.setCursor(10, 10);
-            tft.println("AP: ESP32-Console");
-            tft.println("Connecting from phone...");
-            tft.println("(Tap 'Exit' on phone or wait to cancel)");
+            SystemText_Draw(tft, "AP: ESP32-Console\n請用手機連線設定\n手機按 Exit 或等待取消", "AP: ESP32-Console\nConnect from phone\nTap Exit or wait to cancel", 10, 10, 300, 100, TFT_YELLOW);
 
             wm.setConfigPortalTimeout(60); // 60 秒逾時
             isConnected = wm.startConfigPortal("ESP32-Console");
@@ -94,10 +93,7 @@ void setup() {
             // 🎯 如果在手機點了 Exit 或 60 秒沒配網成功
             if (!isConnected) {
                 tft.fillScreen(TFT_BLACK);
-                tft.setTextColor(TFT_RED, TFT_BLACK);
-                tft.setCursor(10, 10);
-                tft.println("WiFi Setup Canceled / Timeout.");
-                tft.println("Starting in Offline Mode...");
+                SystemText_Draw(tft, "WiFi 設定取消或逾時\n正在進入離線模式...", "WiFi setup canceled or timed out.\nStarting offline...", 10, 10, 300, 60, TFT_RED);
                 delay(1200); // 提示 1.2 秒
             }
         }else {
@@ -106,11 +102,6 @@ void setup() {
     }
     
     tft.fillScreen(TFT_BLACK);
-
-    // -------------------6. 初始化 SD 卡 -------------------//
-    SPI.begin();
-    if (!SD.begin(SD_CS_PIN))  Serial.println("⚠️ SD 卡掛載失敗或未插入！");
-    else                       Serial.println("✅ SD 卡載入完成");
 
     // -------------------7. 啟動其他 Task -------------------//
     if (!appQueuesReady) {

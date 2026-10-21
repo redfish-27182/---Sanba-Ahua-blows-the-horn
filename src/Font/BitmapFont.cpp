@@ -131,3 +131,44 @@ void BitmapFont::drawText(TFT_eSPI &tft, const char *text, int x, int y, uint16_
         x += 16;
     }
 }
+
+// 將文字限制在矩形範圍，以完整 UTF-8 字元計算每一行。
+// tft：TFT_eSPI&；text：UTF-8 字串；x、y、width、height：區域；color：顏色；center：是否置中。
+void BitmapFont::drawTextBox(TFT_eSPI &tft, const char *text, int x, int y, int width, int height, uint16_t color, bool center) const {
+    if (!text || !records || x < 0 || y < 0 || width < 16 || height < 16) return;
+    if (x + width > tft.width()) width = tft.width() - x;
+    if (y + height > tft.height()) height = tft.height() - y;
+    const int columns = width / 16;
+    if (columns < 1) return;
+    while (*text && height >= 16) {
+        const char *lineStart = text;
+        int countInLine = 0;
+        while (*text && countInLine < columns) {
+            const char *next = text;
+            uint32_t codepoint = nextCodepoint(next);
+            if (codepoint == '\n') break;
+            text = next;
+            if (codepoint != '\r') ++countInLine;
+        }
+        int px = x + (center ? (width - countInLine * 16) / 2 : 0);
+        while (lineStart < text) {
+            const uint32_t codepoint = nextCodepoint(lineStart);
+            if (codepoint == '\r') continue;
+            const uint8_t *glyph = findGlyph(codepoint);
+            if (!glyph) glyph = findGlyph(fallbackCodepoint);
+            if (glyph) for (int row = 0; row < 16; ++row) {
+                uint16_t bits = (uint16_t(glyph[row * 2]) << 8) | glyph[row * 2 + 1];
+                for (int col = 0; col < 16;) {
+                    if (!(bits & (0x8000u >> col))) { ++col; continue; }
+                    int begin = col;
+                    while (col < 16 && (bits & (0x8000u >> col))) ++col;
+                    tft.drawFastHLine(px + begin, y + row, col - begin, color);
+                }
+            }
+            px += 16;
+        }
+        if (*text == '\n') ++text;
+        y += 16;
+        height -= 16;
+    }
+}

@@ -5,6 +5,7 @@
 #include <WiFiClientSecure.h>
 #include <HTTPUpdate.h>
 #include <TFT_eSPI.h>
+#include "Font/SystemText.h"
 
 class GitHubOTA {
     private:
@@ -36,9 +37,7 @@ class GitHubOTA {
             Serial.println("🚀 啟動 GitHub HTTPS OTA 升級程序...");
 
             tft.fillScreen(TFT_BLACK);
-            tft.setTextColor(TFT_CYAN, TFT_BLACK);
-            tft.setTextDatum(TC_DATUM);
-            tft.drawString("OTA UPDATING...", 160, 60, 4);
+            SystemText_Draw(tft, "正在更新韌體...", "OTA UPDATING...", 0, 60, tft.width(), 32, TFT_CYAN, true);
             drawProgressBar(0);
 
             WiFiClientSecure client;
@@ -59,8 +58,7 @@ class GitHubOTA {
 
             if (ret == HTTP_UPDATE_FAILED) {
                 Serial.printf("❌ OTA 升級失敗 (%d): %s\n", httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
-                tft.setTextColor(TFT_RED, TFT_BLACK);
-                tft.drawString("OTA FAILED!", 160, 100, 4);
+                SystemText_Draw(tft, "韌體更新失敗！", "OTA FAILED!", 0, 100, tft.width(), 32, TFT_RED, true);
                 return false;
             }
 

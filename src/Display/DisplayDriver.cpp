@@ -1,12 +1,11 @@
 #include "Display/DisplayDriver.h"
+#include "Font/SystemText.h"
 
 // 顯示簡單的載入狀態或錯誤。
 // message：const char*，顯示文字。
 void DisplayDriver::showMessage(const char *message) {
     tft.fillScreen(TFT_BLACK);
-    tft.setTextColor(TFT_WHITE, TFT_BLACK);
-    tft.setTextDatum(TL_DATUM);
-    tft.drawString(message, 12, 20, 2);
+    SystemText_Draw(tft, message, message, 12, 20, tft.width() - 24, tft.height() - 20, TFT_WHITE);
 }
 
 // 同步送出 RGB565 區塊，呼叫結束後可重用緩衝區。

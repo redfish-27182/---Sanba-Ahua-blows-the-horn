@@ -1,16 +1,17 @@
 #include "UI/SceneManager.h"
 #include <new>
+#include "Font/SystemText.h"
 
 // 先顯示載入狀態，再同步讀取 SD 卡並建立遊戲畫面。
 // 無輸入；回傳：bool，是否成功。
 bool SceneManager::startGame() {
 
     // 顯示載入中訊息。
-    loading.show(display, "Loading game...");
+    loading.show(display, SystemText_Choose("正在載入遊戲...", "Loading game..."));
 
     // 從 SD 卡載入地圖與素材，失敗時顯示錯誤訊息。
     if (!loader.load("/game/maps/first_map.bin", "/game/tilesets/tileset.bin", map)) {
-        failureMessage = "Map load failed. Check SD card.";
+        failureMessage = SystemText_Choose("地圖載入失敗，請檢查 SD 卡。", "Map load failed. Check SD card.");
         loading.show(display, failureMessage);
         return false;
     }
@@ -30,7 +31,7 @@ bool SceneManager::startGame() {
             ESP.getFreeHeap(), 
             ESP.getMaxAllocHeap()
         );
-        failureMessage = "Not enough memory for game."; 
+        failureMessage = SystemText_Choose("記憶體不足，無法進入遊戲。", "Not enough memory for game."); 
         loading.show(display, failureMessage); 
         return false; 
     }
@@ -42,7 +43,7 @@ bool SceneManager::startGame() {
 
     if (!game->initialize()) {
         game.reset();
-        failureMessage = "Not enough memory to render.";
+        failureMessage = SystemText_Choose("記憶體不足，無法顯示畫面。", "Not enough memory to render.");
         loading.show(display, failureMessage);
         return false;
     }
@@ -63,7 +64,7 @@ void SceneManager::handleInput(const InputEvent &event) {
 void SceneManager::update() {
     if (game && !game -> drawIfNeeded()) { 
         game.reset(); 
-        failureMessage = "Not enough memory to render."; 
+        failureMessage = SystemText_Choose("記憶體不足，無法顯示畫面。", "Not enough memory to render."); 
         loading.show(display, failureMessage); 
     }
 }

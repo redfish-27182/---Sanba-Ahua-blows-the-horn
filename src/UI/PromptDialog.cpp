@@ -1,5 +1,6 @@
 #include "UI/PromptDialog.h"
 #include "../EventTypes.h"
+#include "Font/SystemText.h"
 
 PromptDialog::PromptDialog(TFT_eSPI &tftScreen)
     : _tft(tftScreen) {}
@@ -23,38 +24,11 @@ void PromptDialog::drawWindow(
     _tft.fillRect(winX, winY, winW, winH, TFT_BLACK);
     _tft.drawRect(winX, winY, winW, winH, TFT_WHITE);
     _tft.fillRect(winX, winY, winW, 28, TFT_NAVY);
-    _tft.setTextColor(TFT_YELLOW, TFT_NAVY);
-    _tft.setTextDatum(TC_DATUM);
-    _tft.drawString(title.c_str(), winX + winW / 2, winY + 6, 2);
-    _tft.setTextSize(1);
+    SystemText_Draw(_tft, title.c_str(), title.c_str(), winX, winY + 6, winW, 16, TFT_YELLOW, true);
 
     // 將訊息依視窗可用寬度分行繪製。
-    _tft.setTextColor(TFT_WHITE, TFT_BLACK);
-    _tft.setTextDatum(TL_DATUM);
     const int startX = winX + 12;
-    const int lineHeight = 18;
-    int currentY = winY + 36;
-
-    // 使用 String 物件來累積每行文字，直到遇到換行符號或超過視窗寬度。
-    String tempLine;
-    for (int i = 0; i < message.length(); i++) {
-        const char c = message.charAt(i);
-        if (c == '\n') {
-            _tft.drawString(tempLine.c_str(), startX, currentY, 2);
-            tempLine = "";
-            currentY += lineHeight;
-        } else {
-            tempLine += c;
-            if (_tft.textWidth(tempLine.c_str(), 2) > (winW - 24)) {
-                _tft.drawString(tempLine.c_str(), startX, currentY, 2);
-                tempLine = "";
-                currentY += lineHeight;
-            }
-        }
-    }
-    if (tempLine.length() > 0) {
-        _tft.drawString(tempLine.c_str(), startX, currentY, 2);
-    }
+    SystemText_Draw(_tft, message.c_str(), message.c_str(), startX, winY + 36, winW - 24, 70, TFT_WHITE);
 
     const int btnY = winY + winH - 38;
     const int btnAX = winX + 10;
@@ -69,8 +43,7 @@ void PromptDialog::drawWindow(
         _tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
     }
     _tft.drawRect(btnAX, btnY, btnW, btnH, TFT_WHITE);
-    _tft.setTextDatum(MC_DATUM);
-    _tft.drawString(confirmText.c_str(), btnAX + btnW / 2, btnY + btnH / 2, 2);
+    SystemText_Draw(_tft, confirmText.c_str(), confirmText.c_str(), btnAX, btnY + 6, btnW, 16, highlightA ? TFT_BLACK : TFT_WHITE, true);
 
     // B／取消按鈕。
     if (highlightB) {
@@ -81,7 +54,7 @@ void PromptDialog::drawWindow(
         _tft.setTextColor(TFT_WHITE, TFT_DARKGREY);
     }
     _tft.drawRect(btnBX, btnY, btnW, btnH, TFT_WHITE);
-    _tft.drawString(cancelText.c_str(), btnBX + btnW / 2, btnY + btnH / 2, 2);
+    SystemText_Draw(_tft, cancelText.c_str(), cancelText.c_str(), btnBX, btnY + 6, btnW, 16, TFT_WHITE, true);
 }
 
 bool PromptDialog::show(

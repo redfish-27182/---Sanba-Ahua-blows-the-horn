@@ -18,6 +18,10 @@ public:
     // tft：TFT_eSPI&，螢幕；text：const char*，UTF-8 文字；x、y：int，起點；color：uint16_t，RGB565 色彩。
     void drawText(TFT_eSPI &tft, const char *text, int x, int y, uint16_t color) const;
 
+    // 在指定範圍繪製 UTF-8，依字元換行並避免超出範圍。
+    // x、y、width、height：int，顯示區域；center：bool，是否逐行置中。
+    void drawTextBox(TFT_eSPI &tft, const char *text, int x, int y, int width, int height, uint16_t color, bool center = false) const;
+
 private:
     // 在已載入的排序索引中查詢字形。
     // codepoint：uint32_t，Unicode 編號；回傳：const uint8_t*，32 bytes 點陣或 nullptr。

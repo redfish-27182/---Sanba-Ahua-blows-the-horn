@@ -6,6 +6,7 @@
 #include <HTTPClient.h>
 #include <SD.h>
 #include <TFT_eSPI.h>
+#include "Font/SystemText.h"
 
 class ImageDownloader {
     private:
@@ -16,15 +17,13 @@ class ImageDownloader {
             _tft.fillScreen(TFT_BLACK);
             
             // 標題
-            _tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-            _tft.setTextDatum(TC_DATUM);
-            _tft.drawString("[ Downloading Assets ]", _tft.width() / 2, 30, 2);
+            SystemText_Draw(_tft, "正在下載素材", "Downloading assets", 0, 30, _tft.width(), 16, TFT_YELLOW, true);
 
             // 進度資訊
             _tft.setTextColor(TFT_WHITE, TFT_BLACK);
             _tft.setTextDatum(MC_DATUM);
-            String progressStr = "Progress: " + String(currentNum) + " / " + String(totalNum);
-            _tft.drawString(progressStr, _tft.width() / 2, _tft.height() / 2 - 10, 2);
+            String progressStr = String(SystemText_Choose("進度: ", "Progress: ")) + String(currentNum) + " / " + String(totalNum);
+            SystemText_Draw(_tft, progressStr.c_str(), progressStr.c_str(), 0, _tft.height() / 2 - 10, _tft.width(), 16, TFT_WHITE, true);
 
             // 當前檔名
             _tft.setTextColor(TFT_GREEN, TFT_BLACK);
