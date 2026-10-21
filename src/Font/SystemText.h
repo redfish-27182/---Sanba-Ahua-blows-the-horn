@@ -11,4 +11,14 @@ const char *SystemText_Choose(const char *zh, const char *en);
 
 // 於指定範圍繪製中文或英文備用文字。
 // screen：螢幕；zh、en：中文及備用文字；x、y、width、height：區域；color：顏色；center：置中。
-void SystemText_Draw(TFT_eSPI &screen, const char *zh, const char *en, int x, int y, int width, int height, uint16_t color, bool center = false);
+void SystemText_Draw(
+    TFT_eSPI &screen, 
+    const char *zh, 
+    const char *en, 
+    int x, 
+    int y, 
+    int width, 
+    int height, 
+    uint16_t color, 
+    bool center = false
+);

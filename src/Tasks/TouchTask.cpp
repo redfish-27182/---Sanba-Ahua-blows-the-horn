@@ -106,6 +106,15 @@ void TouchTask_Start(
 ) {
     // 保存呼叫端建立的物件；該物件的生命週期必須長於此背景工作。
     pTs = &touchscreen;
+    
     // 配置 4096 bytes 堆疊，並固定到指定核心；工作會持續執行，不會自行結束。
-    xTaskCreatePinnedToCore(touchTaskCode, "TouchTask", 4096, NULL, priority, NULL, coreID);
+    xTaskCreatePinnedToCore(
+        touchTaskCode, 
+        "TouchTask", 
+        4096, 
+        NULL, 
+        priority, 
+        NULL, 
+        coreID
+    );
 }

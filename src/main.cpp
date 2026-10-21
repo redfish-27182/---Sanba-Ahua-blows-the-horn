@@ -12,7 +12,6 @@
 #include "UI/PromptDialog.h"
 #include "UI/UiTask.h"
 #include "Network/MqttTask.h"
-#include "UpdateManager/UpdateManager.h"
 #include "Tasks/TouchTask.h"
 #include "Tasks/PowerManager.h"
 #include "Font/SystemText.h"
@@ -39,25 +38,25 @@ void setup() {
     tft.setRotation(1);
     tft.fillScreen(TFT_BLACK);
 
-    // Wi-Fi 提示之前先掛載 SD 並載入共用系統字庫。
+    // -----------------2. SD 卡初始化/載入字庫 ------------------------//
     SPI.begin();
     if (!SD.begin(SD_CS_PIN)) Serial.println("⚠️ SD 卡掛載失敗或未插入！");
     else if (!SystemText_Load()) Serial.println("⚠️ 系統字庫載入失敗，改用英文提示。");
     else Serial.println("✅ SD 卡及系統字庫載入完成");
 
-    // -------------------2. 初始化獨立觸控 SPI -------------------//
+    // -------------------3. 初始化獨立觸控 SPI -------------------//
 
     touchSpi.begin(XPT2046_CLK, XPT2046_MISO, XPT2046_MOSI, XPT2046_CS);
     ts.begin(touchSpi);
     ts.setRotation(1);
 
-    // -------------------3. 建立 FreeRTOS 隊列 -------------------//
+    // -------------------4. 建立 FreeRTOS 隊列 -------------------//
 
     constexpr UBaseType_t inputQueueLength = 10; // FreeRTOS 隊列長度
     inputQueue = xQueueCreate(inputQueueLength, sizeof(InputEvent));
     const bool appQueuesReady = AppQueues_Create();
 
-    // -------------------4. 啟動 TouchTask -------------------//
+    // -------------------5. 啟動 TouchTask -------------------//
 
     if (inputQueue == nullptr) {
         Serial.println("Failed to create input queue.");
@@ -66,7 +65,7 @@ void setup() {
         TouchTask_Start(ts, touchTaskPriority, 1); 
     }
 
-    // -----------------5. WiFi 連線 (Exit 按鈕 + 逾時跳過) -----------------//
+    // -------------------6. WiFi 連線 (Exit 按鈕 + 逾時跳過) -----------------//
     WiFiManager wm;
     wm.setConnectTimeout(8);
     
@@ -80,8 +79,12 @@ void setup() {
 
         // 呼叫PromptDialog 選擇框
         String wifiMsg = SystemText_Choose("WiFi 連線失敗\n要設定網路嗎？", "WiFi failed.\nConfigure network?");
-        bool wantConfig = dialog.show(SystemText_Choose("WiFi 設定", "WIFI SETUP"), wifiMsg,
-                                      SystemText_Choose("設定", "CONFIG"), SystemText_Choose("離線", "OFFLINE"));
+        bool wantConfig = dialog.show(
+            SystemText_Choose("WiFi 設定", "WIFI SETUP"), 
+            wifiMsg,
+            SystemText_Choose("設定", "CONFIG"), 
+            SystemText_Choose("離線", "OFFLINE")
+        );
 
         if (wantConfig) {
             tft.fillScreen(TFT_BLACK);

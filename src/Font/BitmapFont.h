@@ -8,7 +8,6 @@
 class BitmapFont {
 public:
     // 讀取並檢查轉檔工具產生的字庫；失敗時保留既有字庫。
-    // path：const char*，SD 卡字庫路徑；回傳：bool，是否成功。
     bool load(const char *path);
 
     // 釋放已載入的字庫。
@@ -24,8 +23,7 @@ public:
 
 private:
     // 在已載入的排序索引中查詢字形。
-    // codepoint：uint32_t，Unicode 編號；回傳：const uint8_t*，32 bytes 點陣或 nullptr。
-    const uint8_t *findGlyph(uint32_t codepoint) const;
-    std::unique_ptr<uint8_t[]> records;
-    uint32_t count = 0;
+    const uint8_t *findGlyph(uint32_t codepoint) const; // 查詢字形，若無則回傳 nullptr。
+    std::unique_ptr<uint8_t[]> records; // 字形索引，已排序
+    uint32_t count = 0; // 字形數量
 };

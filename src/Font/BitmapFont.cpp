@@ -6,9 +6,9 @@
 #include <utility>
 
 namespace {
-constexpr size_t headerSize = 16;
-constexpr size_t recordSize = 36;
-constexpr uint32_t fallbackCodepoint = 0x25a1;
+constexpr size_t headerSize = 16; // 字庫檔案開頭的固定大小
+constexpr size_t recordSize = 36; // 每個字形的資料大小：4 bytes Unicode 編號 + 32 bytes 點陣 + 1 byte 保留 + 1 byte 保留
+constexpr uint32_t fallbackCodepoint = 0x25a1; // 缺字標記：□，Unicode 編號 U+25A1
 
 // 讀取小端序 16 位元整數。
 // data：const uint8_t*，至少兩個位元組；回傳：uint16_t，解碼結果。
@@ -48,26 +48,55 @@ uint32_t nextCodepoint(const char *&cursor) {
 }
 
 // 載入固定格式的字庫，驗證大小、字元順序與缺字標記。
-// path：const char*，SD 卡字庫路徑；回傳：bool，是否成功。
 bool BitmapFont::load(const char *path) {
+
+    // 嘗試開啟字庫檔案。
     File file = SD.open(path, FILE_READ);
-    if (!file) { Serial.printf("[BitmapFont] cannot open: %s\n", path); return false; }
+    if (!file) { 
+        Serial.printf("[BitmapFont] cannot open: %s\n", path); 
+        return false; 
+    }
+
+    // 檢查字庫檔案的標頭。
     uint8_t header[headerSize];
-    if (file.read(header, sizeof(header)) != sizeof(header) || memcmp(header, "AHFT", 4) != 0 ||
-        read16(header + 4) != 1 || read16(header + 6) != 16 || read16(header + 8) != 16 || read16(header + 10) != 0) {
-        Serial.println("[BitmapFont] invalid header"); return false;
-    }
-    const uint32_t glyphCount = read32(header + 12);
-    if (!glyphCount || glyphCount > 4096 || file.size() != headerSize + size_t(glyphCount) * recordSize) {
-        Serial.println("[BitmapFont] invalid count or file size"); return false;
-    }
-    const size_t bytes = size_t(glyphCount) * recordSize;
-    std::unique_ptr<uint8_t[]> loaded(new (std::nothrow) uint8_t[bytes]);
-    if (!loaded) {
-        Serial.printf("[BitmapFont] allocation failed: %u bytes, free=%u, largest=%u\n", static_cast<unsigned>(bytes), ESP.getFreeHeap(), ESP.getMaxAllocHeap());
+    if (file.read(header, sizeof(header)) != sizeof(header) 
+        || memcmp(header, "AHFT", 4) != 0 // 檔案標記
+        || read16(header + 4) != 1  // 版本號
+        || read16(header + 6) != 16 // 字形寬度
+        || read16(header + 8) != 16 // 字形高度
+        || read16(header + 10) != 0 // 保留
+    ) {
+        Serial.println("[BitmapFont] invalid header"); 
         return false;
     }
-    if (file.read(loaded.get(), bytes) != bytes) { Serial.println("[BitmapFont] incomplete file"); return false; }
+
+    // 檢查字庫檔案的大小與字元數量。
+    const uint32_t glyphCount = read32(header + 12);
+    if (!glyphCount 
+        || glyphCount > 4096 // 避免過大字庫
+        || file.size() != headerSize + size_t(glyphCount) * recordSize
+    ) {
+        Serial.println("[BitmapFont] invalid count or file size"); 
+        return false;
+    }
+
+    // 載入字形資料。
+    const size_t bytes = size_t(glyphCount) * recordSize;
+    std::unique_ptr<uint8_t[]> loaded(new (std::nothrow) uint8_t[bytes]); // 建立暫存區，避免直接覆蓋既有字庫
+    if (!loaded) {
+        Serial.printf("[BitmapFont] allocation failed: %u bytes, free=%u, largest=%u\n", 
+            static_cast<unsigned>(bytes), 
+            ESP.getFreeHeap(), 
+            ESP.getMaxAllocHeap()
+        );
+        return false;
+    }
+    if (file.read(loaded.get(), bytes) != bytes) { 
+        Serial.println("[BitmapFont] incomplete file"); 
+        return false; 
+    }
+
+    // 檢查字形資料。
     uint32_t previous = 0;
     bool hasFallback = false;
     for (uint32_t i = 0; i < glyphCount; ++i) {
@@ -81,13 +110,21 @@ bool BitmapFont::load(const char *path) {
     if (!hasFallback) { Serial.println("[BitmapFont] missing fallback glyph"); return false; }
     records = std::move(loaded);
     count = glyphCount;
-    Serial.printf("[BitmapFont] loaded %u characters, %u bytes; free=%u, largest=%u\n", count, static_cast<unsigned>(bytes), ESP.getFreeHeap(), ESP.getMaxAllocHeap());
+    Serial.printf("[BitmapFont] loaded %u characters, %u bytes; free=%u, largest=%u\n", 
+        count, 
+        static_cast<unsigned>(bytes), 
+        ESP.getFreeHeap(), 
+        ESP.getMaxAllocHeap()
+    );
     return true;
 }
 
 // 釋放字庫資料。
 // 無輸入及回傳值。
-void BitmapFont::unload() { records.reset(); count = 0; }
+void BitmapFont::unload() { 
+    records.reset(); 
+    count = 0; 
+}
 
 // 以二分搜尋查詢字形。
 // codepoint：uint32_t，Unicode 編號；回傳：const uint8_t*，字形或 nullptr。
