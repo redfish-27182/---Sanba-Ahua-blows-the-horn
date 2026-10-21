@@ -3,4 +3,5 @@ input/*
 output/*
 !output/.gitkeep
 .venv/
+.deps/
 __pycache__/
