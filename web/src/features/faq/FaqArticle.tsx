@@ -1,7 +1,23 @@
-import type { FaqArticleData } from './faqArticles'
+import { useEffect } from 'react'
+import { EditorContent, useEditor } from '@tiptap/react'
+import Image from '@tiptap/extension-image'
+import StarterKit from '@tiptap/starter-kit'
+import type { Article } from '../../api/articles'
 
-// 顯示一篇指南文章；目前內容使用前端示範資料。
-function FaqArticle({ article }: { article: FaqArticleData }) {
+// 以唯讀模式顯示後端儲存的 Tiptap 文件。
+export default function FaqArticle({ article }: { article: Article }) {
+    const editor = useEditor({
+        extensions: [StarterKit, Image],
+        content: article.content,
+        editable: false,
+        editorProps: { attributes: { class: 'article-content max-w-3xl' } },
+    })
+
+    // 網址切換文章時更新內容，不重新建立畫面元件。
+    useEffect(() => {
+        editor?.commands.setContent(article.content)
+    }, [editor, article.content])
+
     return (
         <article className="min-w-0 flex-1 bg-white px-6 py-8 sm:px-10 sm:py-10">
             <p className="mb-3 text-sm font-medium text-blue-700">
@@ -10,21 +26,8 @@ function FaqArticle({ article }: { article: FaqArticleData }) {
             <h1 className="text-3xl font-bold tracking-tight text-slate-900">
                 {article.title}
             </h1>
-            <p className="mt-5 max-w-3xl leading-7 text-slate-600">
-                {article.description}
-            </p>
             <hr className="my-8 border-slate-200" />
-            
-            <div className="max-w-3xl space-y-9">
-                {article.sections.map((section) => (
-                    <section key={section.heading}>
-                        <h2 className="border-b border-slate-200 pb-3 text-xl font-semibold text-slate-900">{section.heading}</h2>
-                        {section.paragraphs.map((paragraph) => <p key={paragraph} className="mt-4 leading-8 text-slate-600">{paragraph}</p>)}
-                    </section>
-                ))}
-            </div>
+            <EditorContent editor={editor} />
         </article>
     )
 }
-
-export default FaqArticle
