@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     database_user: str = "sanba_app"
     database_password: str = ""
 
+    # 未完成管理員驗證前，文章寫入預設關閉；只供本機開發使用。
+    article_edit_enabled: bool = False
+
     mqtt_host: str = ""
     mqtt_port: int = 8883
     mqtt_username: str = ""

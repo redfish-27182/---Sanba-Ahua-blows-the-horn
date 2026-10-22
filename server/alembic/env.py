@@ -7,7 +7,7 @@ from sqlalchemy import engine_from_config, pool
 
 from app.config.settings import settings
 from app.database.base import Base
-from app.database.models import DeviceStatus  # noqa: F401 - 讓 Alembic 載入資料表 model
+from app.database.models import Article, DeviceStatus  # noqa: F401 - 讓 Alembic 載入資料表 model
 
 config = context.config
 if config.config_file_name is not None:
