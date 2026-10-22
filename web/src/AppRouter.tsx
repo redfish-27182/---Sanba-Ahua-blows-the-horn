@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router'
+import { Navigate, Route, Routes } from 'react-router'
 import PublicLayout from './layouts/PublicLayout'
 import BackendAdminPage from './pages/BackendAdminPage'
 import FaqPage from './pages/FaqPage'
@@ -11,7 +11,8 @@ function AppRouter() {
         <Routes>
             <Route element={<PublicLayout />}>
                 <Route index element={<HomePage />} />
-                <Route path="faq" element={<FaqPage />} />
+                <Route path="faq" element={<Navigate to="/faq/getting-started" replace />} />
+                <Route path="faq/:articleSlug" element={<FaqPage />} />
                 <Route path="*" element={<NotFoundPage />} />
             </Route>
             <Route path="/admin" element={<BackendAdminPage />} />
