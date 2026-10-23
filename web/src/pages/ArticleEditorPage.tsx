@@ -46,20 +46,54 @@ export default function ArticleEditorPage() {
 
     return (
         <main className="mx-auto max-w-4xl space-y-5 px-4 py-8">
-            <h1 className="text-2xl font-bold">文章編輯器（本機測試）</h1>
-            <p className="text-sm text-slate-600">此頁沒有登入驗證，僅供本機開發。相同網址名稱儲存時會更新原文章。</p>
-            <label className="block text-sm font-medium">網址名稱
-                <input value={slug} onChange={(event) => setSlug(event.target.value)} className="mt-1 block w-full rounded border border-slate-300 bg-white p-2" placeholder="getting-started" />
+            <h1 className="text-2xl font-bold">
+                文章編輯器（本機測試）
+            </h1>
+            <p className="text-sm text-slate-600">
+                此頁沒有登入驗證，僅供本機開發。相同網址名稱儲存時會更新原文章。
+            </p>
+            <label className="block text-sm font-medium">
+                網址名稱
+                <input 
+                    value={slug} 
+                    onChange={(event) => setSlug(event.target.value)} 
+                    className="mt-1 block w-full rounded border border-slate-300 bg-white p-2" placeholder="getting-started" 
+                />
             </label>
-            <label className="block text-sm font-medium">文章標題
-                <input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={200} className="mt-1 block w-full rounded border border-slate-300 bg-white p-2" />
+            <label className="block text-sm font-medium">
+                文章標題
+                <input 
+                    value={title} 
+                    onChange={(event) => setTitle(event.target.value)} 
+                    maxLength={200} 
+                    className="mt-1 block w-full rounded border border-slate-300 bg-white p-2" 
+                />
             </label>
+
+            {/* 我自己封裝的文章編輯器元件 */}
             <ArticleEditor onReady={setEditor} />
+
             <div className="flex flex-wrap gap-3">
-                <button type="button" disabled={busy || !editor} onClick={load} className="rounded bg-slate-200 px-4 py-2 disabled:opacity-50">讀取文章</button>
-                <button type="button" disabled={busy || !editor} onClick={save} className="rounded bg-blue-700 px-4 py-2 text-white disabled:opacity-50">儲存文章</button>
+                <button 
+                    type="button" 
+                    disabled={busy || !editor} 
+                    onClick={load} 
+                    className="rounded bg-slate-200 px-4 py-2 disabled:opacity-50"
+                >   
+                    讀取文章
+                </button>
+                <button 
+                    type="button" 
+                    disabled={busy || !editor} 
+                    onClick={save} 
+                    className="rounded bg-blue-700 px-4 py-2 text-white disabled:opacity-50"
+                >
+                    儲存文章
+                </button>
             </div>
-            <p role="status" className="text-sm text-slate-700">{message}</p>
+            <p role="status" className="text-sm text-slate-700">
+                {message}
+            </p>
         </main>
     )
 }

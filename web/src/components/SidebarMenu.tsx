@@ -84,7 +84,6 @@ function SidebarItem({ item, isOpen, isActive, submenuId, onToggle, onClose }: S
                             ${isOpen ? 'rotate-90' : ''}`
                         } 
                     />
-
                 </button>
 
                 {/* 子選單 */}
@@ -95,11 +94,11 @@ function SidebarItem({ item, isOpen, isActive, submenuId, onToggle, onClose }: S
                 >
                     {item.children}
                 </Submenu>
-
             </li>
         )
     }
 
+    // 單一個母選單項目，沒有子選單，回傳li元素
     return (
         <li className="relative">
             {item.to ? (
@@ -128,7 +127,9 @@ export default function SidebarMenu({ items, label }: SidebarMenuProps) {
     // 點擊選單外面時收起；觸控裝置也不依賴 hover。
     useEffect(() => {
         function closeOutside(event: PointerEvent) {
-            if (menuRef.current && !menuRef.current.contains(event.target as Node)) setOpenIndex(null)
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                setOpenIndex(null)
+            }
         }
         document.addEventListener('pointerdown', closeOutside)
         return () => document.removeEventListener('pointerdown', closeOutside)

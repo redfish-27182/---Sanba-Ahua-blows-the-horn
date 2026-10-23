@@ -1,6 +1,8 @@
 import { Link, useParams } from 'react-router'
 import { useEffect, useState } from 'react'
 import axios from 'axios'
+
+// 我自己封裝的元件與函式
 import { getArticle } from '../api/articles'
 import type { Article } from '../api/articles'
 import SidebarMenu from '../components/SidebarMenu'
@@ -19,6 +21,8 @@ export default function FaqPage() {
         const controller = new AbortController()
         setStatus('loading')
         setArticle(null)
+        
+        // 使用封裝在 api 的 getArticle() 取得文章內容
         getArticle(articleSlug, controller.signal).then((result) => {
             setArticle(result)
             setStatus('ready')
@@ -49,19 +53,21 @@ export default function FaqPage() {
             {/* 主要內容 */}
             <div className="min-h-[32rem] overflow-visible rounded-xl border border-slate-200 bg-white shadow-sm sm:flex">
                 
-                {/* 自製側邊選單 */}
+                {/* 自己封裝的側邊選單 */}
                 <SidebarMenu items={faqMenu} label="指南目錄" />
-                
+
+                {/* 如果文章已載入，則顯示文章內容 */}
                 {status === 'ready' && 
                     article ? 
+                        // 自己封裝的文章顯示元件
                         <FaqArticle article={article} /> 
                         : (
                         <div className="flex-1 px-6 py-10 sm:px-10">
                             {status === 'loading' && 
                                 <p role="status">
                                     文章載入中...
-                                </p>}
-
+                                </p>
+                            }
                             {status === 'missing' && 
                                 <>
                                     <h1 className="text-2xl font-bold text-slate-900">
@@ -75,7 +81,6 @@ export default function FaqPage() {
                                     </Link>
                                 </>
                             }
-                            
                             {status === 'error' && 
                                 <>
                                     <h1 className="text-2xl font-bold text-slate-900">

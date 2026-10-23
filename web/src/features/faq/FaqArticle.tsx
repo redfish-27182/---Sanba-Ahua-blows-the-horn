@@ -10,7 +10,11 @@ export default function FaqArticle({ article }: { article: Article }) {
         extensions: [StarterKit, Image],
         content: article.content,
         editable: false,
-        editorProps: { attributes: { class: 'article-content max-w-3xl' } },
+        editorProps: { 
+            attributes: { 
+                class: 'article-content max-w-3xl' 
+            } 
+        },
     })
 
     // 網址切換文章時更新內容，不重新建立畫面元件。
@@ -27,6 +31,8 @@ export default function FaqArticle({ article }: { article: Article }) {
                 {article.title}
             </h1>
             <hr className="my-8 border-slate-200" />
+
+            {/* 文章內容 */}
             <EditorContent editor={editor} />
         </article>
     )
