@@ -1,6 +1,7 @@
 #include "UI/PromptDialog.h"
 #include "../EventTypes.h"
 #include "Font/SystemText.h"
+#include "Config.h"
 
 PromptDialog::PromptDialog(TFT_eSPI &tftScreen)
     : _tft(tftScreen) {}
@@ -17,8 +18,8 @@ void PromptDialog::drawWindow(
     constexpr int winH = 150;
     constexpr int btnW = 110;
     constexpr int btnH = 28;
-    const int winX = (320 - winW) / 2;
-    const int winY = (240 - winH) / 2;
+    const int winX = (SCREEN_WIDTH - winW) / 2;
+    const int winY = (SCREEN_HEIGHT - winH) / 2;
 
     // 對話框外框與標題列。
     _tft.fillRect(winX, winY, winW, winH, TFT_BLACK);
@@ -67,8 +68,8 @@ bool PromptDialog::show(
     constexpr int winH = 150;
     constexpr int btnW = 110;
     constexpr int btnH = 28;
-    const int winX = (320 - winW) / 2;
-    const int winY = (240 - winH) / 2;
+    const int winX = (SCREEN_WIDTH - winW) / 2;
+    const int winY = (SCREEN_HEIGHT - winH) / 2;
     const int btnY = winY + winH - 38;
     const int btnAX = winX + 10;
     const int btnBX = winX + winW - 120;

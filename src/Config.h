@@ -1,6 +1,10 @@
 #pragma once
 #include <Arduino.h>
 
+// 螢幕旋轉後的顯示尺寸；需與 TFT 驅動設定及旋轉方向一致。
+constexpr int SCREEN_WIDTH = 320;
+constexpr int SCREEN_HEIGHT = 240;
+
 // 螢幕與 SD 卡腳位
 #define TFT_BL          21
 #define SD_CS_PIN       5

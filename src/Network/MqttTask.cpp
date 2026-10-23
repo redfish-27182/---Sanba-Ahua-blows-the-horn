@@ -21,7 +21,6 @@ void sendUiState(UiCommandType type) {
     if (uiCommandQueue == nullptr) {
         return;
     }
-
     UiCommand command{};
     command.type = type;
     xQueueSend(uiCommandQueue, &command, 0);

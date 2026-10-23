@@ -43,7 +43,8 @@ bool TileRenderer::draw(
         Serial.println("[TileRenderer] 還沒初始化ˇ");
         return false;
     }
-    for (int sy = 0; sy < 240; sy += stripHeight) {
+    for (int sy = 0; sy < SCREEN_HEIGHT; sy += stripHeight) {
+        const int currentHeight = std::min(stripHeight, SCREEN_HEIGHT - sy);
         // 先清空緩衝區
         std::fill_n(strip.get(), stripWidth * stripHeight, uint16_t(0));
         
@@ -51,11 +52,11 @@ bool TileRenderer::draw(
         for (unsigned layer = 0; layer < map.layers; ++layer) {
 
             // 每個區塊不跨越瓦片邊界，因此只需查找一次素材。
-            for (int py = 0; py < stripHeight;) {
+            for (int py = 0; py < currentHeight;) {
                 const int wy = camera.y + sy + py;
                 if (wy >= int(map.height) * 16) break;
 
-                const int blockHeight = std::min(stripHeight - py, 16 - wy % 16);
+                const int blockHeight = std::min(currentHeight - py, 16 - wy % 16);
                 for (int px = 0; px < stripWidth;) {
                     const int wx = camera.x + px;
                     if (wx >= int(map.width) * 16) break;
@@ -85,7 +86,7 @@ bool TileRenderer::draw(
                 py += blockHeight;
             }
         }
-        display.drawStrip(sy, stripHeight, strip.get());
+        display.drawStrip(sy, currentHeight, strip.get());
         yield();
     }
     return true;

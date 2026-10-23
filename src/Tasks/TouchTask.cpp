@@ -29,11 +29,11 @@ static void touchTaskCode(void *pvParameters) {
                     continue;
                 }
 
-                // 取兩次樣本的平均，再以此觸控面板的校正範圍映射至 320 x 240 螢幕。
-                int16_t curX = map((p1.x + p2.x) / 2, 200, 3700, 0, 320);
-                int16_t curY = map((p1.y + p2.y) / 2, 240, 3800, 0, 240);
-                curX = constrain(curX, 0, 319);
-                curY = constrain(curY, 0, 239);
+                // 校正值是觸控原始數值；輸出範圍依螢幕尺寸設定。
+                int16_t curX = map((p1.x + p2.x) / 2, 200, 3700, 0, SCREEN_WIDTH);
+                int16_t curY = map((p1.y + p2.y) / 2, 240, 3800, 0, SCREEN_HEIGHT);
+                curX = constrain(curX, 0, SCREEN_WIDTH - 1);
+                curY = constrain(curY, 0, SCREEN_HEIGHT - 1);
 
                 uint32_t now = millis();
 
