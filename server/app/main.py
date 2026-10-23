@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.articles import router as articles_router
+from app.api.article_api import router as articles_router
 from app.mqtt.client import MqttClient
 from app.services.firmware_service import publish_firmware_version
 

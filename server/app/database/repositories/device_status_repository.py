@@ -3,7 +3,7 @@
 from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import insert
 
-from app.database.models.device_status import DeviceStatus
+from app.database.models.device_status_model import DeviceStatus
 from app.database.session import SessionLocal
 
 

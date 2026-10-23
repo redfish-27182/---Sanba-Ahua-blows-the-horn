@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Path, Request
 
 from app.config.settings import settings
-from app.schemas.article import ArticleInput, ArticleResponse
+from app.schemas.article_schema import ArticleInput, ArticleResponse
 from app.services import article_service
 
 router = APIRouter(prefix="/api/articles", tags=["articles"])

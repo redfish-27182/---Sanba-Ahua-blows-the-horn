@@ -17,19 +17,19 @@ class ArticleApiTests(unittest.TestCase):
 
     def test_get_missing_article(self):
         """不存在的文章回傳 404。"""
-        with patch("app.api.articles.article_service.get_article", return_value=None):
+        with patch("app.api.article_api.article_service.get_article", return_value=None):
             self.assertEqual(self.client.get("/api/articles/test").status_code, 404)
 
     def test_write_disabled(self):
         """預設停用寫入，不應呼叫儲存服務。"""
-        with patch.object(settings, "article_edit_enabled", False), patch("app.api.articles.article_service.save_article") as save:
+        with patch.object(settings, "article_edit_enabled", False), patch("app.api.article_api.article_service.save_article") as save:
             response = self.client.put("/api/articles/test", json={"title": "測試", "content": self.content})
             self.assertEqual(response.status_code, 403)
             save.assert_not_called()
 
     def test_write_from_local_origin(self):
         """啟用後只接受本機測試來源。"""
-        with patch.object(settings, "article_edit_enabled", True), patch("app.api.articles.article_service.save_article", return_value=self.saved):
+        with patch.object(settings, "article_edit_enabled", True), patch("app.api.article_api.article_service.save_article", return_value=self.saved):
             response = self.client.put("/api/articles/test", headers={"Origin": "http://localhost:5173"}, json={"title": "測試", "content": self.content})
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.json()["content"], self.content)

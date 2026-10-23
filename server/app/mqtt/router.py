@@ -3,7 +3,7 @@
 import logging
 
 from app.mqtt.topics                         import DEVICE_EVENTS_TOPIC_ROOT
-from app.services.devices.status_service     import handle_device_status
+from app.services.devices.device_status_service import handle_device_status
 
 logger = logging.getLogger(__name__)
 

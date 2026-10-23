@@ -63,6 +63,7 @@ class ArticleInput(BaseModel):
 
 def validate_url(value: object) -> None:
     """圖片和連結僅允許完整的 HTTP(S) 網址。"""
+    
     if not isinstance(value, str) or len(value) > 2048:
         raise ValueError("圖片或連結網址無效")
     url = urlsplit(value)

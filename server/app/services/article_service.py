@@ -1,6 +1,6 @@
 """文章邏輯；資料庫操作交由 repository 執行。"""
 from app.database.repositories import article_repository
-from app.schemas.article import ArticleInput, ArticleResponse
+from app.schemas.article_schema import ArticleInput, ArticleResponse
 
 
 def get_article(slug: str) -> ArticleResponse | None:

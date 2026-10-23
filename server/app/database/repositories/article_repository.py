@@ -1,9 +1,9 @@
 """使用 SQLAlchemy ORM 存取文章，不在這裡處理 HTTP。"""
 from sqlalchemy import select
 
-from app.database.models.article import Article
+from app.database.models.article_model import Article
 from app.database.session import SessionLocal
-from app.schemas.article import ArticleInput, ArticleResponse
+from app.schemas.article_schema import ArticleInput, ArticleResponse
 
 
 def get_article(slug: str) -> ArticleResponse | None:
