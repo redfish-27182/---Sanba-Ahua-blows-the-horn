@@ -3,6 +3,7 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+.VSCodeCounter/
 
 # Local credentials for the standalone MQTT receiver example.
 examples/mqtt_version_receiver/include/secrets.h
