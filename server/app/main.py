@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.article_api import router as articles_router
+from app.config.settings import LOCAL_ORIGINS
 from app.mqtt.client import MqttClient
 from app.services.firmware_service import publish_firmware_version
 
@@ -76,7 +77,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="SanBa_Ahou Backend", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=LOCAL_ORIGINS,
     allow_methods=["GET", "PUT"],
     allow_headers=["Content-Type"],
 )

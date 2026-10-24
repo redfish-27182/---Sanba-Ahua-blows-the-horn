@@ -4,13 +4,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Path, Request
 
-from app.config.settings import settings
+from app.config.settings import LOCAL_ORIGINS, settings
 from app.schemas.article_schema import ArticleInput, ArticleResponse
 from app.services import article_service
 
 router = APIRouter(prefix="/api/articles", tags=["articles"])
 Slug = Annotated[str, Path(min_length=1, max_length=100, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")]
-LOCAL_ORIGINS = {"http://localhost:5173", "http://127.0.0.1:5173"}
 
 
 @router.get("/{slug}", response_model=ArticleResponse)

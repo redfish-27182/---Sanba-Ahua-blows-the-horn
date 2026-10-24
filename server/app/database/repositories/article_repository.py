@@ -10,7 +10,10 @@ def get_article(slug: str) -> ArticleResponse | None:
     """依文章網址名稱查詢。"""
     with SessionLocal() as session:
         article = session.scalar(select(Article).where(Article.slug == slug))
-        return ArticleResponse.model_validate(article) if article else None
+        if article is None:
+            return None
+        else:
+            return ArticleResponse.model_validate(article)
 
 
 def save_article(slug: str, data: ArticleInput) -> ArticleResponse:

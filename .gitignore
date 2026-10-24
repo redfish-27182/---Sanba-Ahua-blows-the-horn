@@ -14,6 +14,7 @@ include/Secrets.h
 # Python backend local settings and virtual environments.
 .env
 server/.venv/
+server/.venv-articles/
 __pycache__/
 *.py[cod]
 

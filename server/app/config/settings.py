@@ -6,6 +6,9 @@ from urllib.parse import quote_plus
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# 本機前端來源，供 CORS 與文章編輯權限檢查共用。
+LOCAL_ORIGINS = ("http://localhost:5173", "http://127.0.0.1:5173")
+
 
 class Settings(BaseSettings):
     """後端使用的資料庫與 MQTT 設定。"""
