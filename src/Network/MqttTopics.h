@@ -7,6 +7,7 @@ constexpr char MQTT_FIRMWARE_VERSION_TOPIC[] =
 // ESP32 回傳事件時，一律放在自己的 device_id 節點下。
 constexpr char MQTT_DEVICE_STATUS_PREFIX[] = "ahou/events/devices/";
 constexpr char MQTT_DEVICE_STATUS_SUFFIX[] = "/status";
+constexpr char MQTT_DEVICE_WIFI_SCAN_SUFFIX[] = "/wifi/scan";
 
 // 預留給 MQTT 連線與 Router 的測試訊息。
 constexpr char MQTT_DEVICE_TEST_PING_SUFFIX[] = "/test/ping";

@@ -103,15 +103,19 @@ void setup() {
             Serial.println("使用者選擇離線模式");
         }
     }
-    
+
     tft.fillScreen(TFT_BLACK);
 
     // -------------------7. 啟動其他 Task -------------------//
     if (!appQueuesReady) {
         Serial.println("Failed to create application queues.");
     } else {
-        UiTask_Start(tft, dialog, 3, 1); // UiTask，啟動!!!!!
+        // 先讓 TLS 握手完成，避免它與地圖載入競爭連續 heap。
         MqttTask_Start(2, 0);            // MqttTask，啟動!!!!!
+        if (WiFi.status() == WL_CONNECTED && !MqttTask_WaitForInitialConnection(20000)) {
+            Serial.println("[MQTT] Initial connection attempt timed out; starting the game anyway.");
+        }
+        UiTask_Start(tft, dialog, 3, 1); // UiTask，啟動!!!!!
     }
 
     // TouchTask 會在每次有效觸碰時更新閒置時間。

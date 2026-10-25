@@ -2,16 +2,20 @@
 
 #include <WiFi.h>
 #include <cstring>
+#include <freertos/event_groups.h>
 
 #include "App/AppMessages.h"
 #include "App/AppQueues.h"
 #include "Network/MqttTlsClient.h"
 #include "Network/MqttTopics.h"
+#include "Network/WifiScanner.h"
 #include "secrets.h"
 
 namespace {
 
 MqttTlsClient mqttClient;
+EventGroupHandle_t mqttStartupEvents = nullptr;
+constexpr EventBits_t MQTT_INITIAL_ATTEMPT_FINISHED = BIT0;
 
 // 連線失敗時依序等待 5、10、30、60 秒；不會因 Broker 暫時故障卡住整個系統。
 constexpr uint32_t RECONNECT_DELAYS_MS[] = {5000, 10000, 30000, 60000};
@@ -53,8 +57,16 @@ bool connectAndSubscribe(char *statusTopic, size_t statusTopicLength) {
             MQTT_DEVICE_ID, MQTT_DEVICE_STATUS_SUFFIX);
 
     // Last Will 為 retained offline：裝置異常斷線時 Broker 仍會替我們留下離線狀態。
+    Serial.printf(
+        "[MQTT] Before TLS connection: free heap=%u, largest block=%u\n",
+        ESP.getFreeHeap(),
+        ESP.getMaxAllocHeap()
+    );
     if (!mqttClient.connect(MQTT_DEVICE_ID, MQTT_USERNAME, MQTT_PASSWORD, statusTopic, "offline")) {
-        Serial.printf("MQTT connect failed, state = %d\n", mqttClient.state());
+        Serial.printf(
+            "MQTT connect failed, state=%d; free heap=%u, largest block=%u\n",
+            mqttClient.state(), ESP.getFreeHeap(), ESP.getMaxAllocHeap()
+        );
         return false;
     }
 
@@ -80,6 +92,28 @@ void drainPublishQueue() {
     }
 }
 
+// 開機掃描結果只發布一次；定位資料只含 BSSID、RSSI 與頻道。
+bool publishBootWifiScan() {
+    if (!WifiScanner::hasResults()) {
+        Serial.println("[WifiScanner] No scan results to publish.");
+        return true;
+    }
+
+    char topic[APP_TOPIC_LENGTH]{};
+    char payload[384]{};
+    snprintf(topic, sizeof(topic), "%s%s%s", MQTT_DEVICE_STATUS_PREFIX, MQTT_DEVICE_ID, MQTT_DEVICE_WIFI_SCAN_SUFFIX);
+    if (!WifiScanner::writeLocationPayload(payload, sizeof(payload))) {
+        Serial.println("[WifiScanner] Failed to create MQTT scan payload.");
+        return true;
+    }
+    if (!mqttClient.publish(topic, payload, false)) {
+        Serial.println("[WifiScanner] MQTT scan publish failed; it will be retried after reconnect.");
+        return false;
+    }
+    Serial.printf("[WifiScanner] Published scan to %s\n", topic);
+    return true;
+}
+
 // MQTT Task 的主函式。
 void mqttTask(void *) {
     mqttClient.begin(MQTT_HOST, MQTT_PORT, messageCallback);
@@ -89,6 +123,8 @@ void mqttTask(void *) {
     uint8_t retryIndex = 0;               // 連線失敗時的等待時間索引
     uint32_t nextAttemptAt = 0;           // 下一次嘗試連線的時間點（毫秒）
     char statusTopic[APP_TOPIC_LENGTH]{}; // 用來發佈 retained online/offline 狀態的主題
+    bool bootWifiScanPublished = false;
+    bool initialAttemptPending = true;
 
     for (;;) {
 
@@ -119,6 +155,10 @@ void mqttTask(void *) {
             clockSynchronized = mqttClient.synchronizeClock();
             if (!clockSynchronized) {
                 sendUiState(UiCommandType::SET_MQTT_OFFLINE);
+                if (initialAttemptPending && mqttStartupEvents != nullptr) {
+                    xEventGroupSetBits(mqttStartupEvents, MQTT_INITIAL_ATTEMPT_FINISHED);
+                    initialAttemptPending = false;
+                }
                 vTaskDelay(pdMS_TO_TICKS(RECONNECT_DELAYS_MS[retryIndex]));
                 retryIndex = retryIndex < 3 ? retryIndex + 1 : 3;
                 continue;
@@ -130,10 +170,19 @@ void mqttTask(void *) {
             if (millis() >= nextAttemptAt) {
                 if (connectAndSubscribe(statusTopic, sizeof(statusTopic))) {
                     retryIndex = 0;
+                    if (!bootWifiScanPublished) {
+                        // TLS 已完成配置後才掃描，避免掃描暫用記憶體影響憑證驗證。
+                        WifiScanner::scanAndLog();
+                        bootWifiScanPublished = publishBootWifiScan();
+                    }
                 } else {
                     sendUiState(UiCommandType::SET_MQTT_OFFLINE);
                     nextAttemptAt = millis() + RECONNECT_DELAYS_MS[retryIndex];
                     retryIndex = retryIndex < 3 ? retryIndex + 1 : 3;
+                }
+                if (initialAttemptPending && mqttStartupEvents != nullptr) {
+                    xEventGroupSetBits(mqttStartupEvents, MQTT_INITIAL_ATTEMPT_FINISHED);
+                    initialAttemptPending = false;
                 }
             }
             vTaskDelay(pdMS_TO_TICKS(100));
@@ -150,6 +199,9 @@ void mqttTask(void *) {
 
 // MqttTask 啟動!!!
 void MqttTask_Start(UBaseType_t priority, BaseType_t core) {
+    if (mqttStartupEvents == nullptr) {
+        mqttStartupEvents = xEventGroupCreate();
+    }
     xTaskCreatePinnedToCore(
         mqttTask, 
         "MqttTask", 
@@ -159,4 +211,15 @@ void MqttTask_Start(UBaseType_t priority, BaseType_t core) {
         nullptr, 
         core
     );
+}
+
+bool MqttTask_WaitForInitialConnection(uint32_t timeoutMs) {
+    if (mqttStartupEvents == nullptr) return false;
+    return (xEventGroupWaitBits(
+        mqttStartupEvents,
+        MQTT_INITIAL_ATTEMPT_FINISHED,
+        pdFALSE,
+        pdTRUE,
+        pdMS_TO_TICKS(timeoutMs)
+    ) & MQTT_INITIAL_ATTEMPT_FINISHED) != 0;
 }
