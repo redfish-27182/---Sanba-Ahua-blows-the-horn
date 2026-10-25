@@ -5,12 +5,27 @@ function NavigationMenu() {
     const [open, setOpen] = useState(false)
 
     return (
-        <div className="relative" onKeyDown={(event) => { if (event.key === 'Escape') setOpen(false) }}>
-            <button type="button" aria-expanded={open} aria-controls="site-navigation" onClick={() => setOpen(!open)} className="rounded-lg px-3 py-2 text-sm hover:bg-slate-100">
-                導覽 <span aria-hidden="true">▾</span>
+        <div 
+            className="relative" 
+            onKeyDown={(event) => { if (event.key === 'Escape') setOpen(false) }}
+        >
+            <button 
+                type="button" 
+                aria-expanded={open} 
+                aria-controls="site-navigation" 
+                onClick={() => setOpen(!open)} 
+                className="text-white rounded-lg py-2 px-3 text-sm hover:bg-slate-100 heover:text-slate-900 "
+            >
+                導覽 
+                <span aria-hidden="true">▾</span>
             </button>
+
             {open && (
-                <nav id="site-navigation" aria-label="網站導覽" className="absolute left-0 top-full z-10 mt-2 w-44 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
+                <nav 
+                    id="site-navigation" 
+                    aria-label="網站導覽" 
+                    className="absolute left-0 top-full z-10 mt-2 w-44 rounded-xl border border-slate-200 bg-white p-2 shadow-lg"
+                >
                     <Link to="/faq" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-2 hover:bg-slate-100">
                         用戶指南
                     </Link>
