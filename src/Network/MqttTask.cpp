@@ -21,16 +21,6 @@ constexpr EventBits_t MQTT_BOOT_WIFI_SCAN_REQUESTED = BIT1;
 // 連線失敗時依序等待 5、10、30、60 秒；不會因 Broker 暫時故障卡住整個系統。
 constexpr uint32_t RECONNECT_DELAYS_MS[] = {5000, 10000, 30000, 60000};
 
-// 連線成功後會立即發佈 retained online 狀態，斷線時 Broker 會自動發佈 retained offline 狀態。
-void sendUiState(UiCommandType type) {
-    if (uiCommandQueue == nullptr) {
-        return;
-    }
-    UiCommand command{};
-    command.type = type;
-    xQueueSend(uiCommandQueue, &command, 0);
-}
-
 // MQTT callback 會在 mqttClient.loop() 被呼叫時觸發，並且在同一個 Task 內執行。
 void messageCallback(char *topic, byte *payload, unsigned int length) {
     // PubSubClient 的 payload 不是以 \0 結尾，因此必須明確複製並補結尾。
@@ -53,6 +43,7 @@ void messageCallback(char *topic, byte *payload, unsigned int length) {
     }
 }
 
+// 嘗試連線到 MQTT Broker，並訂閱必要的主題。
 bool connectAndSubscribe(char *statusTopic, size_t statusTopicLength) {
     snprintf(statusTopic, statusTopicLength, "%s%s%s", MQTT_DEVICE_STATUS_PREFIX,
             MQTT_DEVICE_ID, MQTT_DEVICE_STATUS_SUFFIX);
@@ -71,7 +62,6 @@ bool connectAndSubscribe(char *statusTopic, size_t statusTopicLength) {
 
     mqttClient.publish(statusTopic, "online", true);
     Serial.println("MQTT connected and subscribed.");
-    sendUiState(UiCommandType::SET_MQTT_ONLINE);
     return true;
 }
 
@@ -80,30 +70,37 @@ void drainPublishQueue() {
     MqttPublishRequest request{};
     while (xQueueReceive(mqttPublishQueue, &request, 0) == pdTRUE) {
         if (!mqttClient.publish(request.topic, request.payload, request.retained)) {
-            Serial.println("MQTT publish 失敗了~ 哭哭");
+            Serial.println("MQTT 發布失敗了~ 哭哭");
         }
     }
 }
 
-// 開機掃描結果只發布一次；定位資料只含 BSSID、RSSI 與頻道。
+// 開機掃描周遭環境 Wifi ，只發布一次
 bool publishBootWifiScan() {
     if (!WifiScanner::hasResults()) {
-        Serial.println("[WifiScanner] No scan results to publish.");
+        Serial.println("[WifiScanner] 沒有 Wi-Fi 掃描結果，無法發佈。");
         return true;
     }
 
     char topic[APP_TOPIC_LENGTH]{};
     char payload[384]{};
-    snprintf(topic, sizeof(topic), "%s%s%s", MQTT_DEVICE_STATUS_PREFIX, MQTT_DEVICE_ID, MQTT_DEVICE_WIFI_SCAN_SUFFIX);
+    snprintf(
+        topic,
+        sizeof(topic),
+        "%s%s%s",
+        MQTT_DEVICE_STATUS_PREFIX,
+        MQTT_DEVICE_ID,
+        MQTT_DEVICE_WIFI_SCAN_SUFFIX
+    );
     if (!WifiScanner::writeLocationPayload(payload, sizeof(payload))) {
-        Serial.println("[WifiScanner] Failed to create MQTT scan payload.");
+        Serial.println("[WifiScanner] 掃描結果轉換 JSON 失敗。");
         return true;
     }
     if (!mqttClient.publish(topic, payload, false)) {
-        Serial.println("[WifiScanner] MQTT scan publish failed; it will be retried after reconnect.");
+        Serial.println("[WifiScanner] MQTT 發佈 Wi-Fi 掃描結果失敗。");
         return false;
     }
-    Serial.printf("[WifiScanner] Published scan to %s\n", topic);
+    Serial.printf("[WifiScanner] 發佈 Wi-Fi 掃描結果到 %s\n", topic);
     return true;
 }
 
@@ -112,13 +109,12 @@ void mqttTask(void *) {
     mqttClient.begin(MQTT_HOST, MQTT_PORT, messageCallback);
 
     bool clockSynchronized = false;       // 是否已經同步過時間，避免 TLS 驗證失敗
-    bool wifiReportedOnline = false;      // Wi-Fi 連線狀態是否已經回報給 UiTask
     uint8_t retryIndex = 0;               // 連線失敗時的等待時間索引
     uint32_t nextAttemptAt = 0;           // 下一次嘗試連線的時間點（毫秒）
     char statusTopic[APP_TOPIC_LENGTH]{}; // 用來發佈 retained online/offline 狀態的主題
-    bool bootWifiScanPublished = false;
-    bool bootWifiScanRequested = false;
-    bool initialSetupPending = true;
+    bool bootWifiScanPublished = false;   // 開機 Wi-Fi 掃描結果是否已經發佈過
+    bool bootWifiScanRequested = false;   // 其他 Task 是否要求發佈開機 Wi-Fi 掃描結果
+    bool initialSetupPending = true;      // 是否尚未完成初始設定，讓其他 Task 可以等待
 
     for (;;) {
 
@@ -127,28 +123,16 @@ void mqttTask(void *) {
             if (mqttClient.connected()) {
                 mqttClient.disconnect();
             }
-            if (wifiReportedOnline) {
-                sendUiState(UiCommandType::SET_WIFI_OFFLINE);
-                sendUiState(UiCommandType::SET_MQTT_OFFLINE);
-                wifiReportedOnline = false;
-            }
             // Wi-Fi 重新連上後需要再次確認時間，避免斷線很久後 TLS 驗證失準。
             clockSynchronized = false;
             vTaskDelay(pdMS_TO_TICKS(1000));
             continue;
         }
-        
-        // Wi-Fi 已經連線，且尚未回報給 UiTask。之後會刪除
-        if (!wifiReportedOnline) {
-            sendUiState(UiCommandType::SET_WIFI_ONLINE);
-            wifiReportedOnline = true;
-        }
-        
+
         // 同步時間，避免 TLS 驗證失敗。
         if (!clockSynchronized) {
             clockSynchronized = mqttClient.synchronizeClock();
             if (!clockSynchronized) {
-                sendUiState(UiCommandType::SET_MQTT_OFFLINE);
                 if (initialSetupPending && mqttStartupEvents != nullptr) {
                     xEventGroupSetBits(mqttStartupEvents, MQTT_INITIAL_SETUP_FINISHED);
                     initialSetupPending = false;
@@ -165,26 +149,26 @@ void mqttTask(void *) {
                 if (connectAndSubscribe(statusTopic, sizeof(statusTopic))) {
                     retryIndex = 0;
                 } else {
-                    sendUiState(UiCommandType::SET_MQTT_OFFLINE);
                     nextAttemptAt = millis() + RECONNECT_DELAYS_MS[retryIndex];
                     retryIndex = retryIndex < 3 ? retryIndex + 1 : 3;
                 }
                 if (initialSetupPending && mqttStartupEvents != nullptr) {
-                    xEventGroupSetBits(mqttStartupEvents, MQTT_INITIAL_SETUP_FINISHED);
+                    xEventGroupSetBits(mqttStartupEvents, MQTT_INITIAL_SETUP_FINISHED); // 讓其他 Task 可以等待初始設定完成
                     initialSetupPending = false;
                 }
             }
             vTaskDelay(pdMS_TO_TICKS(100));
             continue;
         }
-
+        
+        // MQTT 已連線，檢查是否有其他 Task 要求發佈開機 Wi-Fi 掃描結果。
         if (mqttStartupEvents != nullptr &&
-            (xEventGroupGetBits(mqttStartupEvents) & MQTT_BOOT_WIFI_SCAN_REQUESTED)) {
+            (xEventGroupGetBits(mqttStartupEvents) & MQTT_BOOT_WIFI_SCAN_REQUESTED)) 
+        {
             xEventGroupClearBits(mqttStartupEvents, MQTT_BOOT_WIFI_SCAN_REQUESTED);
             bootWifiScanRequested = true;
         }
         if (bootWifiScanRequested && !bootWifiScanPublished) {
-            // MapLoader 已先配置最大 pixels，掃描的暫時配置不會影響地圖載入。
             WifiScanner::scanAndLog();
             bootWifiScanPublished = publishBootWifiScan();
             bootWifiScanRequested = false;
@@ -201,7 +185,7 @@ void mqttTask(void *) {
 // MqttTask 啟動!!!
 void MqttTask_Start(UBaseType_t priority, BaseType_t core) {
     if (mqttStartupEvents == nullptr) {
-        mqttStartupEvents = xEventGroupCreate();
+        mqttStartupEvents = xEventGroupCreate(); // MQTT 初始設定完成事件
     }
     xTaskCreatePinnedToCore(
         mqttTask, 
@@ -214,6 +198,7 @@ void MqttTask_Start(UBaseType_t priority, BaseType_t core) {
     );
 }
 
+// 等待 MqttTask 完成初始設定，或逾時。
 bool MqttTask_WaitForInitialSetup(uint32_t timeoutMs) {
     if (mqttStartupEvents == nullptr) return false;
     return (xEventGroupWaitBits(
@@ -225,8 +210,10 @@ bool MqttTask_WaitForInitialSetup(uint32_t timeoutMs) {
     ) & MQTT_INITIAL_SETUP_FINISHED) != 0;
 }
 
+// 其他 Task 要求 MqttTask 發佈開機 Wi-Fi 掃描結果。
 void MqttTask_RequestBootWifiScan() {
     if (mqttStartupEvents != nullptr) {
+        // 設定事件旗標，MqttTask 會在下一個迴圈發佈 Wi-Fi 掃描結果。
         xEventGroupSetBits(mqttStartupEvents, MQTT_BOOT_WIFI_SCAN_REQUESTED);
     }
 }

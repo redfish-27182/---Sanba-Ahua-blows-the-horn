@@ -11,9 +11,6 @@ TouchTask                               MQTT Task
     ▼                                       │       ▼
 inputQueue                                  │  mqttInboundQueue
     │                                       │       │
-    │                                       └── UI 狀態指令
-    │                                               ▼
-    │                                          uiCommandQueue
     └──────────────────────┬────────────────────────┘
                            ▼
 ┌──────────────────────────────────────────────────────────────┐
@@ -112,7 +109,6 @@ MQTT Task → mqttInboundQueue → UiTask → UpdateManager
 | `inputQueue` | `TouchTask` 傳送觸控事件；一般遊戲時由 `UiTask` 讀取，提示視窗開啟時由 `PromptDialog` 讀取。 |
 | `mqttInboundQueue` | MQTT Task 傳送收到的訊息，由 `UiTask` 交給更新邏輯。 |
 | `mqttPublishQueue` | 傳送發布請求給 MQTT Task。 |
-| `uiCommandQueue` | 接收其他 Task 的 UI 狀態指令；目前遊戲畫面尚未顯示這些狀態。 |
 
 `UpdateManager` 不再是獨立 Task，因此目前不需要 `uiResponseQueue` 來交接使用者選擇或 OTA 螢幕使用權。
 

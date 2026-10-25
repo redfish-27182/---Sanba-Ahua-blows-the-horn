@@ -32,9 +32,6 @@ void uiTask(void *parameter) {
                 scenes.redraw();
             }
         }
-        UiCommand command{};
-        // 現在狀態指令仍接收，但遊戲畫面暫不顯示連線狀態。
-        while (xQueueReceive(uiCommandQueue, &command, 0) == pdTRUE) {}
         // 有界處理事件，避免快速觸控造成畫面完全無法更新。
         for (int i = 0; inputQueue && i < 10 && xQueueReceive(inputQueue, &input, 0) == pdTRUE; ++i) {
             scenes.handleInput(input);
