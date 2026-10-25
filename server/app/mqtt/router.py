@@ -4,6 +4,7 @@ import logging
 
 from app.mqtt.topics                         import DEVICE_EVENTS_TOPIC_ROOT
 from app.services.devices.device_status_service import handle_device_status
+from app.services.devices.wifi_scan_service import handle_wifi_scan
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,10 @@ async def route_message(topic: str, payload: bytes) -> None:
 
     if event_path == ["status"]:
         handle_device_status(device_id, payload)
+        return
+
+    if event_path == ["wifi", "scan"]:
+        handle_wifi_scan(device_id, payload)
         return
 
     if event_path == ["test", "ping"]:
