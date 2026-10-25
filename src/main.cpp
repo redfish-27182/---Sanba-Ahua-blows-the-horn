@@ -69,7 +69,7 @@ void setup() {
     WiFiManager wm;
     wm.setConnectTimeout(8);
     
-    SystemText_Draw(tft, "正在連線 WiFi...", "Connecting to saved WiFi...", 10, 10, 300, 40, TFT_WHITE, true);
+    SystemText_Draw(tft, "正在連線 WiFi...", "Connecting to saved WiFi...",10, 100, 300, 24,TFT_WHITE, true);
     
     bool isConnected = wm.autoConnect();
 

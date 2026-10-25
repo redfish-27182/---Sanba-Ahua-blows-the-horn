@@ -51,8 +51,8 @@ static void touchTaskCode(void *pvParameters) {
                     xQueueSend(inputQueue, &evt, 0);
                     
                 } else {
-                    // 同一次按壓中，位移超過 4px 才回報 DRAG
-                    if (abs(curX - lastX) > 4 || abs(curY - lastY) > 4) {
+                    // 同一次按壓中，只要座標改變 1px 就回報 DRAG，讓鏡頭平滑跟隨手指。
+                    if (curX != lastX || curY != lastY) {
                         // 傳出evt數據到FreeRTOS隊列
                         InputEvent evt = {InputEventType::DRAG, curX, curY, startX, startY, now - pressStartTime, now};
                         xQueueSend(inputQueue, &evt, 0);
