@@ -54,11 +54,11 @@ class ToolTests(unittest.TestCase):
         library = (self.output / "tileset.bin").read_bytes()
         map_data = (self.output / "map.bin").read_bytes()
         magic, version, size, count, library_id = common.LIBRARY_HEADER.unpack_from(library)
-        self.assertEqual((magic, version, size, count), (b"AHTS", 2, 16, 2))
+        self.assertEqual((magic, version, size, count), (b"AHTS", common.FORMAT_VERSION, 16, 2))
         self.assertEqual(struct.unpack_from("<2H", library, common.LIBRARY_HEADER.size), (0, 1))
-        self.assertEqual(len(library), common.LIBRARY_HEADER.size + 4 + 2 * 512)
+        self.assertEqual(len(library), common.LIBRARY_HEADER.size + 4 + 256 * 2 + 2 * 256)
         map_header = common.MAP_HEADER.unpack_from(map_data)
-        self.assertEqual(map_header, (b"AHMP", 2, 2, 2, 1, library_id))
+        self.assertEqual(map_header, (b"AHMP", common.FORMAT_VERSION, 2, 2, 1, library_id))
         self.assertEqual(struct.unpack_from("<4H", map_data, common.MAP_HEADER.size), (1, 2, 2 | map_tool.MAP_H, 0))
         self.assertEqual(library[common.LIBRARY_HEADER.size + 4:common.LIBRARY_HEADER.size + 6], b"\xf8\x1f")
         # 這裡沒有建立 .tsx，證明整個流程不讀取 .tsx。
@@ -135,8 +135,9 @@ class ToolTests(unittest.TestCase):
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
             tileset_tool.build_tileset(self.input, self.output)
-        pixels = common.read_library(self.output)["pixels"]
-        self.assertEqual(pixels[:10], b"\xf8\x1f\xf8\x1f\xf8\x00\xf8\x00\xf8\x00")
+        library = common.read_library(self.output)
+        self.assertEqual(library["palette"][:3], [0xf81f, 0x0000, 0xf800])
+        self.assertEqual(library["pixels"][:5], b"\x00\x00\x02\x02\x02")
         self.assertIn("處理 3 個半透明像素", output.getvalue())
         self.assertEqual((self.input / "tiles.png").read_bytes(), original_png)
 

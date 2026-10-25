@@ -54,7 +54,7 @@ py -3 -m venv .venv
 
 `output/` 會包含：
 
-- `tileset.bin`：精簡原始瓦片庫，包含排序後的原始瓦片 ID 和 RGB565 像素。
+- `tileset.bin`：精簡原始瓦片庫，包含排序後的原始瓦片 ID、256 色 RGB565 色盤與 8-bit 像素索引。
 - `<地圖名稱>.bin`：地圖尺寸、圖層和每格的瓦片編號與翻轉旗標。
 - `tile_requirements.json`、`tileset.index.json`：電腦端工具的中間清單及對照資料，不需要放進 SD 卡。
 
@@ -85,7 +85,7 @@ py -3 -m venv .venv
 - 翻轉資訊保存在地圖檔，素材庫不另外存翻轉副本。日後 ESP32 需要依 Tiled 規則先處理對角翻轉，再水平、垂直翻轉。
 - 輸出大小不是 SRAM 足夠的保證；需要在 ESP32 同時啟動 Wi-Fi、MQTT 等功能後實測。
 
-## 二進位格式版本 2
+## 二進位格式版本 3
 
 標頭、原始瓦片 ID 表和地圖格子都用 **little-endian**；RGB565 每個像素使用**高位元組在前**。ESP32 端需要配合顯示器傳送方式驗證色彩與位元組順序。
 
@@ -94,21 +94,22 @@ py -3 -m venv .venv
 | 欄位 | 型別 | 說明 |
 | --- | --- | --- |
 | magic | 4 bytes | `AHTS` |
-| version | uint16 | `2` |
+| version | uint16 | `3` |
 | tile size | uint16 | `16` |
 | count | uint32 | 實際載入的瓦片數 |
-| library ID | 16 bytes | ID 表與像素資料的 SHA-256 前 16 bytes |
+| library ID | 16 bytes | ID 表、色盤與索引資料的 SHA-256 前 16 bytes |
 | tile IDs | uint16 × count | 排序後的原始 PNG 瓦片 ID，從 0 開始 |
-| pixels | 512 bytes × count | 與 ID 表同順序的 RGB565 原始瓦片 |
+| palette | 256 × uint16 | RGB565 色盤；第 0 色固定為透明桃紅色 `0xF81F` |
+| indexes | 256 bytes × count | 與 ID 表同順序的 8-bit 色盤索引，每張 tile 為 16 × 16 bytes |
 
-ESP32 可在排序後的 ID 表中搜尋原始瓦片 ID，再用該位置找到對應的 512 bytes；一片瓦片只需 2 bytes 對照資料。例如 137 種瓦片需 274 bytes 的 ID 表。
+ESP32 可在排序後的 ID 表中搜尋原始瓦片 ID，再用該位置找到對應的 256 bytes 色盤索引；色盤另外固定占用 512 bytes。一片瓦片只需 2 bytes 對照資料。例如 137 種瓦片需 274 bytes 的 ID 表。
 
 ### `<地圖名稱>.bin`
 
 | 欄位 | 型別 | 說明 |
 | --- | --- | --- |
 | magic | 4 bytes | `AHMP` |
-| version | uint16 | `2` |
+| version | uint16 | `3` |
 | width / height / layers | uint16 × 3 | 地圖寬、高及圖層數 |
 | library ID | 16 bytes | 必須與 `tileset.bin` 的識別碼一致 |
 | cells | uint16[] | 依圖層順序，再由上到下、由左到右 |

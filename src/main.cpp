@@ -110,10 +110,11 @@ void setup() {
     if (!appQueuesReady) {
         Serial.println("Failed to create application queues.");
     } else {
-        // 先讓 TLS 握手完成，避免它與地圖載入競爭連續 heap。
+        tft.fillScreen(TFT_BLACK);
+        SystemText_Draw(tft, "正在連線 MQTT...", "Connecting MQTT...", 10, 100, 300, 24, TFT_WHITE, true);
         MqttTask_Start(2, 0);            // MqttTask，啟動!!!!!
-        if (WiFi.status() == WL_CONNECTED && !MqttTask_WaitForInitialConnection(20000)) {
-            Serial.println("[MQTT] Initial connection attempt timed out; starting the game anyway.");
+        if (WiFi.status() == WL_CONNECTED && !MqttTask_WaitForInitialSetup(20000)) {
+            Serial.println("[MQTT] Initial setup timed out; starting the game anyway.");
         }
         UiTask_Start(tft, dialog, 3, 1); // UiTask，啟動!!!!!
     }

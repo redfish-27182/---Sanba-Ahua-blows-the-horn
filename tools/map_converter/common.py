@@ -9,8 +9,9 @@ ROOT = Path(__file__).resolve().parent
 INPUT_DIR = ROOT / "input"
 OUTPUT_DIR = ROOT / "output"
 TILE_SIZE = 16
+PALETTE_COLOR_COUNT = 256
 MAX_TILE_CODE = 8191  # 13 bits；0 保留為空格。
-FORMAT_VERSION = 2
+FORMAT_VERSION = 3
 LIBRARY_HEADER = struct.Struct("<4sHHI16s")
 MAP_HEADER = struct.Struct("<4sHHHH16s")
 
@@ -38,18 +39,24 @@ def read_library(output_root):
         data = (output_root / "tileset.bin").read_bytes()
         magic, version, tile_size, count, identifier = LIBRARY_HEADER.unpack_from(data)
         id_bytes = data[LIBRARY_HEADER.size:LIBRARY_HEADER.size + count * 2]
-        pixels = data[LIBRARY_HEADER.size + count * 2:]
+        palette_offset = LIBRARY_HEADER.size + count * 2
+        palette_bytes = data[palette_offset:palette_offset + PALETTE_COLOR_COUNT * 2]
+        pixels = data[palette_offset + PALETTE_COLOR_COUNT * 2:]
         if len(id_bytes) != count * 2:
             raise ValueError("incomplete id table")
         ids = list(struct.unpack(f"<{count}H", id_bytes))
-        expected_length = count * TILE_SIZE * TILE_SIZE * 2
+        palette = list(struct.unpack(f">{PALETTE_COLOR_COUNT}H", palette_bytes))
+        expected_length = count * TILE_SIZE * TILE_SIZE
         if (magic != b"AHTS" or version != FORMAT_VERSION or tile_size != TILE_SIZE
-                or count > MAX_TILE_CODE or len(pixels) != expected_length
+                or count > MAX_TILE_CODE or len(palette_bytes) != PALETTE_COLOR_COUNT * 2
+                or len(pixels) != expected_length
                 or ids != sorted(set(ids)) or any(item >= MAX_TILE_CODE for item in ids)
-                or hashlib.sha256(id_bytes + pixels).digest()[:16] != identifier
+                or hashlib.sha256(id_bytes + palette_bytes + pixels).digest()[:16] != identifier
                 or index.get("version") != FORMAT_VERSION
                 or index.get("library_id") != identifier.hex()
-                or index.get("tile_ids") != ids):
+                or index.get("tile_ids") != ids
+                or not isinstance(index.get("palette_color_count"), int)
+                or not 1 <= index["palette_color_count"] <= PALETTE_COLOR_COUNT):
             raise ValueError("inconsistent library")
         columns = index["columns"]
         rows = index["rows"]
@@ -59,4 +66,5 @@ def read_library(output_root):
             raise ValueError("invalid tile index")
     except (OSError, ValueError, TypeError, KeyError, struct.error, AttributeError) as exc:
         raise ConversionError("瓦片庫或對照表不存在、不一致或損壞，請重新執行瓦片工具。") from exc
-    return {"identifier": identifier, "ids": ids, "pixels": pixels, "index": index}
+    return {"identifier": identifier, "ids": ids, "palette": palette,
+            "pixels": pixels, "index": index}

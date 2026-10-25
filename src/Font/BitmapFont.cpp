@@ -84,11 +84,7 @@ bool BitmapFont::load(const char *path) {
     const size_t bytes = size_t(glyphCount) * recordSize;
     std::unique_ptr<uint8_t[]> loaded(new (std::nothrow) uint8_t[bytes]); // 建立暫存區，避免直接覆蓋既有字庫
     if (!loaded) {
-        Serial.printf("[BitmapFont] allocation failed: %u bytes, free=%u, largest=%u\n", 
-            static_cast<unsigned>(bytes), 
-            ESP.getFreeHeap(), 
-            ESP.getMaxAllocHeap()
-        );
+        Serial.println("[BitmapFont] allocation failed");
         return false;
     }
     if (file.read(loaded.get(), bytes) != bytes) { 
@@ -110,11 +106,9 @@ bool BitmapFont::load(const char *path) {
     if (!hasFallback) { Serial.println("[BitmapFont] missing fallback glyph"); return false; }
     records = std::move(loaded);
     count = glyphCount;
-    Serial.printf("[BitmapFont] loaded %u characters, %u bytes; free=%u, largest=%u\n", 
+    Serial.printf("[BitmapFont] loaded %u characters, %u bytes\n",
         count, 
-        static_cast<unsigned>(bytes), 
-        ESP.getFreeHeap(), 
-        ESP.getMaxAllocHeap()
+        static_cast<unsigned>(bytes)
     );
     return true;
 }

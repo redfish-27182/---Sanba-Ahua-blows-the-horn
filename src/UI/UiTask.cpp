@@ -8,6 +8,7 @@
 
 namespace {
 struct UiTaskContext { TFT_eSPI *tft; PromptDialog *dialog; };
+constexpr uint32_t UI_TASK_STACK_BYTES = 8192;
 
 // 執行畫面、觸控與 OTA 流程；對話框及 OTA 執行時遊戲自然暫停。
 // parameter：void*，啟動時傳入的 UiTaskContext；無回傳值。
@@ -56,7 +57,7 @@ void UiTask_Start(
     xTaskCreatePinnedToCore(
         uiTask, 
         "UiTask", 
-        12288, 
+        UI_TASK_STACK_BYTES,
         context, 
         priority, 
         nullptr, 

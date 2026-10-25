@@ -1,6 +1,7 @@
 #include "UI/SceneManager.h"
 #include <new>
 #include "Font/SystemText.h"
+#include "Network/MqttTask.h"
 
 // 先顯示載入狀態，再同步讀取 SD 卡並建立遊戲畫面。
 // 無輸入；回傳：bool，是否成功。
@@ -17,29 +18,13 @@ bool SceneManager::startGame() {
     }
 
     // 建立遊戲畫面，失敗時顯示錯誤訊息。
-    Serial.printf(
-        "[GameScene] allocate %u bytes; free heap=%u, largest block=%u\n",
-        static_cast<unsigned>(sizeof(GameScene)), // 需要分配的記憶體大小
-        ESP.getFreeHeap(),    // 取得可用的堆積記憶體大小
-        ESP.getMaxAllocHeap() // 取得可一次分配的最大堆積記憶體區塊大小
-    );
-    
     game.reset(new (std::nothrow) GameScene(map, display));
     if (!game) { 
-        Serial.printf(
-            "[GameScene] allocation failed; free heap=%u, largest block=%u\n",
-            ESP.getFreeHeap(), 
-            ESP.getMaxAllocHeap()
-        );
+        Serial.println("[GameScene] allocation failed");
         failureMessage = SystemText_Choose("記憶體不足，無法進入遊戲。", "Not enough memory for game."); 
         loading.show(display, failureMessage); 
         return false; 
     }
-    Serial.printf(
-        "[GameScene] allocation succeeded; free heap=%u, largest block=%u\n",
-        ESP.getFreeHeap(), 
-        ESP.getMaxAllocHeap()
-    );
 
     if (!game->initialize()) {
         game.reset();
@@ -47,6 +32,8 @@ bool SceneManager::startGame() {
         loading.show(display, failureMessage);
         return false;
     }
+    // 地圖最大像素區塊已配置完成，此時才允許 Wi-Fi 掃描配置暫時記憶體。
+    MqttTask_RequestBootWifiScan();
     // 建立完成，清除錯誤訊息。
     failureMessage = nullptr;
     return true;

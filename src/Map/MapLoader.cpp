@@ -1,7 +1,10 @@
 #include "Map/MapLoader.h"
+#include "Config.h"
 
 #include <SD.h>
+#include <cstdlib>
 #include <cstring> 
+#include <new>
 #include <utility>
 
 namespace {
@@ -36,8 +39,8 @@ bool MapLoader::load(const char *mapPath, const char *tilesetPath, MapData &outp
         || tiles.read(th, sizeof(th)) != sizeof(th) // 嘗試讀取檔案標頭，失敗時回傳 false。
         || memcmp(mh, "AHMP", 4)         // 檢查地圖檔案識別碼
         || memcmp(th, "AHTS", 4)         // 檢查素材檔案識別碼
-        || read16(mh + 4) != 2           // 檢查地圖檔案版本
-        || read16(th + 4) != 2           // 檢查素材檔案版本
+        || read16(mh + 4) != MAP_ASSET_FORMAT_VERSION // 檢查地圖檔案版本
+        || read16(th + 4) != MAP_ASSET_FORMAT_VERSION // 檢查素材檔案版本
         || read16(th + 6) != 16          // 檢查素材圖塊大小  
         || memcmp(mh + 12, th + 12, 16)  // 檢查地圖與素材的識別碼是否相符
     ) {
@@ -59,35 +62,39 @@ bool MapLoader::load(const char *mapPath, const char *tilesetPath, MapData &outp
         || count > 8191 
         || cellCount > 100000 
         || map.size()   != 28 + cellCount * 2 
-        || tiles.size() != 28 + uint64_t(count) * 514) 
+        || tiles.size() != 28 + uint64_t(count) * (2 + TILE_COLOR_INDEX_BYTES)
+            + TILE_PALETTE_COLOR_COUNT * 2)
     {
         Serial.println("MapLoader: 地圖或素材檔案尺寸不正確"); 
         return false;
     }
 
-    // 檢查記憶體是否足夠，避免碎裂導致無法載入。
-    if (cellCount * 2 + uint64_t(count) * 514 + 16384 > ESP.getFreeHeap()) {
+    // 將色盤索引完整留在 RAM，避免每次重繪從 SD 逐張讀 tile 而造成拖曳卡頓。
+    const uint64_t cellBytes = cellCount * 2;
+    const uint64_t tileIdBytes = uint64_t(count) * 2;
+    const uint64_t paletteBytes = TILE_PALETTE_COLOR_COUNT * 2;
+    const uint64_t pixelBytes = uint64_t(count) * TILE_COLOR_INDEX_BYTES;
+    const uint32_t chunkCount = (count + TILES_PER_PIXEL_CHUNK - 1) / TILES_PER_PIXEL_CHUNK;
+    if (cellBytes + tileIdBytes + paletteBytes + pixelBytes + 16384 > ESP.getFreeHeap()) {
         Serial.println("MapLoader: 内存不足"); 
         return false;
     }
 
-    // 嘗試分配地圖格子陣列、素材索引陣列與素材像素陣列，失敗時回傳 false。
-    if (cellCount * 2 > ESP.getMaxAllocHeap()) { 
-        Serial.println("MapLoader: 提示記憶體碎裂導致無法載入地圖"); 
-        return false; 
+    if (cellBytes > ESP.getMaxAllocHeap()) {
+        Serial.println("MapLoader: 記憶體碎裂導致無法載入地圖");
+        return false;
     }
-    data.cells.resize(size_t(cellCount)); 
-    if (uint64_t(count) * 2 > ESP.getMaxAllocHeap()) { 
-        Serial.println("MapLoader: 記憶體碎裂導致無法載入素材索引"); 
-        return false; 
+    data.cells.resize(size_t(cellCount));
+
+    if (tileIdBytes > ESP.getMaxAllocHeap()) {
+        Serial.println("MapLoader: 記憶體碎裂導致無法載入素材索引");
+        return false;
     }
     data.tileIds.resize(count);
-    if (uint64_t(count) * 512 > ESP.getMaxAllocHeap()) { 
-        Serial.println("MapLoader: 記憶體碎裂導致無法載入素材像素"); 
-        return false; 
-    }
-    data.pixels.resize(size_t(count) * 512);
 
+    data.palette.resize(TILE_PALETTE_COLOR_COUNT);
+
+    data.pixelChunks.reserve(chunkCount);
 
     uint8_t pair[2];
     for (size_t i = 0; i < data.cells.size(); ++i) {
@@ -105,8 +112,29 @@ bool MapLoader::load(const char *mapPath, const char *tilesetPath, MapData &outp
         data.tileIds[i] = read16(pair);
         if (data.tileIds[i] >= 8191 || (i && data.tileIds[i] <= data.tileIds[i - 1])) return false;
     }
+    for (size_t i = 0; i < data.palette.size(); ++i) {
+        if (tiles.read(pair, 2) != 2) {
+            Serial.println("MapLoader: 無法讀取色盤");
+            return false;
+        }
+        data.palette[i] = uint16_t(pair[0] << 8) | pair[1];
+    }
+    size_t remainingPixelBytes = size_t(pixelBytes);
+    for (uint32_t chunkIndex = 0; chunkIndex < chunkCount; ++chunkIndex) {
+        const size_t chunkBytes = std::min(remainingPixelBytes, TILE_PIXEL_CHUNK_BYTES);
+        std::unique_ptr<uint8_t[]> chunk(new (std::nothrow) uint8_t[chunkBytes]);
+        if (!chunk) {
+            Serial.println("MapLoader: 無法配置素材像素區塊");
+            return false;
+        }
+        if (tiles.read(chunk.get(), chunkBytes) != chunkBytes) {
+            Serial.println("MapLoader: 無法讀取素材像素區塊");
+            return false;
+        }
+        data.pixelChunks.push_back(std::move(chunk));
+        remainingPixelBytes -= chunkBytes;
+    }
     
-    if (!data.pixels.empty() && tiles.read(data.pixels.data(), data.pixels.size()) != data.pixels.size()) return false;
     for (uint16_t cell : data.cells) {
         const uint16_t code = cell & 0x1fff;
         if (!code) { if (cell) return false; continue; }
@@ -115,6 +143,6 @@ bool MapLoader::load(const char *mapPath, const char *tilesetPath, MapData &outp
         if (!found) { Serial.println("MapLoader: missing tile"); return false; }
     }
     output = std::move(data);
-    Serial.printf("MapLoader: %u x %u, %u layers, %u tiles; free heap %u\n", output.width, output.height, output.layers, count, ESP.getFreeHeap());
+    Serial.printf("MapLoader: %u x %u, %u layers, %u tiles loaded\n", output.width, output.height, output.layers, count);
     return true;
 }

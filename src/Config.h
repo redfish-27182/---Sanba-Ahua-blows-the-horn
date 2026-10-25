@@ -5,6 +5,16 @@
 constexpr int SCREEN_WIDTH = 320;
 constexpr int SCREEN_HEIGHT = 240;
 
+// 與 tools/map_converter/common.py 的 FORMAT_VERSION 必須一致。
+constexpr uint16_t MAP_ASSET_FORMAT_VERSION = 3;
+
+// 每個 16×16 tile 用 8-bit 色盤索引表示；色盤本身仍是 RGB565，畫質不變。
+constexpr size_t TILE_PIXEL_COUNT = 16 * 16;
+constexpr size_t TILE_COLOR_INDEX_BYTES = TILE_PIXEL_COUNT;
+constexpr size_t TILE_PALETTE_COLOR_COUNT = 256;
+constexpr size_t TILES_PER_PIXEL_CHUNK = 16;
+constexpr size_t TILE_PIXEL_CHUNK_BYTES = TILE_COLOR_INDEX_BYTES * TILES_PER_PIXEL_CHUNK;
+
 // 螢幕與 SD 卡腳位
 #define TFT_BL          21
 #define SD_CS_PIN       5
