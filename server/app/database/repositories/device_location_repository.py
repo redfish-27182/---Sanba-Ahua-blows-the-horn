@@ -29,3 +29,10 @@ def save_latest_device_location(data: DeviceLocationInput) -> None:
         location.admin_area_level_2 = data.admin_area_level_2
         location.locality = data.locality
         location.located_at = data.located_at
+
+
+def get_all_device_locations() -> list[DeviceLocation]:
+    """輸入無，輸出所有設備最後一次成功定位的座標。"""
+
+    with SessionLocal() as session:
+        return list(session.scalars(select(DeviceLocation)))

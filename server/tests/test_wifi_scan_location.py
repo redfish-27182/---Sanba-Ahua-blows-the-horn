@@ -2,7 +2,7 @@
 
 import asyncio
 import unittest
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from pydantic import SecretStr
 
@@ -137,6 +137,11 @@ class WifiScanLocationTests(unittest.TestCase):
             patch.object(settings, "google_geolocation_api_key", SecretStr("test-key")),
             patch.object(wifi_scan_service.httpx, "AsyncClient", return_value=client),
             patch.object(wifi_scan_service, "save_latest_device_location") as save,
+            patch.object(
+                wifi_scan_service,
+                "refresh_weather_for_device",
+                new_callable=AsyncMock,
+            ) as refresh_weather,
         ):
             asyncio.run(wifi_scan_service.handle_wifi_scan("cyd-01", payload))
 
@@ -151,6 +156,7 @@ class WifiScanLocationTests(unittest.TestCase):
         self.assertEqual(saved.country_name, "Taiwan")
         self.assertEqual(saved.admin_area_level_1, "Taipei City")
         self.assertEqual(saved.locality, "Taipei")
+        refresh_weather.assert_awaited_once_with("cyd-01", 25.033, 121.5654)
 
 
 if __name__ == "__main__":

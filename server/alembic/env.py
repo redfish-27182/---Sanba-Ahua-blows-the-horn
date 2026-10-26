@@ -8,6 +8,7 @@ from sqlalchemy import engine_from_config, pool
 from app.config.settings import settings
 from app.database.base import Base
 from app.database.models.device_location_model import DeviceLocation  # noqa: F401
+from app.database.models.device_weather_model import DeviceWeather  # noqa: F401
 from app.database.models import Article, DeviceStatus  # noqa: F401 - 讓 Alembic 載入資料表 model
 
 config = context.config

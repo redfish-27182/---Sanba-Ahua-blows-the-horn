@@ -30,6 +30,7 @@ class Settings(BaseSettings):
 
     # Google Geolocation API 金鑰只應存在本機 .env，不能放進 ESP32、前端或 Git。
     google_geolocation_api_key: SecretStr | None = None
+    weatherapi_api_key: SecretStr | None = None
 
     mqtt_host: str = ""
     mqtt_port: int = 8883

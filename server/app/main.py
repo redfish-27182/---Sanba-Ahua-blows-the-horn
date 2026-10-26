@@ -12,6 +12,7 @@ from app.api.article_api import router as articles_router
 from app.config.settings import LOCAL_ORIGINS
 from app.mqtt.client import MqttClient
 from app.services.firmware_service import publish_firmware_version
+from app.tasks.weather_refresh_task import WeatherRefreshTask
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,10 @@ async def lifespan(app: FastAPI):
     app.state.mqtt_client = mqtt_client
     await mqtt_client.start()
 
+    weather_refresh_task = WeatherRefreshTask()
+    app.state.weather_refresh_task = weather_refresh_task
+    await weather_refresh_task.start()
+
     # 背景等待可避免 Broker 暫時離線時，整個 FastAPI 無法啟動。
     firmware_version_task = asyncio.create_task(
         publish_firmware_version_when_connected(mqtt_client),
@@ -67,6 +72,7 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
+        await weather_refresh_task.stop()
         firmware_version_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await firmware_version_task

@@ -11,6 +11,7 @@ from app.config.settings import settings
 from app.database.repositories.device_location_repository import (
     save_latest_device_location,
 )
+from app.services.weather_service import refresh_weather_for_device
 from app.schemas.device_location_schema import (
     DeviceLocationInput,
     DeviceLocationNames,
@@ -215,6 +216,13 @@ async def handle_wifi_scan(device_id: str, payload: bytes) -> None:
     except SQLAlchemyError:
         logger.exception("設備 %s 的定位結果無法寫入資料庫。", device_id)
         return
+
+    # 新位置已保存後，立刻取得此設備所在座標的最新天氣。
+    await refresh_weather_for_device(
+        device_id,
+        location.latitude,
+        location.longitude,
+    )
 
     # 7. 成功寫入資料庫後，紀錄定位結果。
     logger.info(
