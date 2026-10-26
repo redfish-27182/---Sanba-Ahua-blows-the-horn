@@ -1,4 +1,4 @@
-"""Wi-Fi 掃描定位服務的單元測試。"""
+"""Wi-Fi 掃描定位與英文行政區服務的單元測試。"""
 
 import asyncio
 import unittest
@@ -11,8 +11,8 @@ from app.schemas.wifi_scan_schema import WifiAccessPointInput
 from app.services.devices import wifi_scan_service
 
 
-class FakeGoogleResponse:
-    """模擬 Google 成功回傳的 HTTP 回應。"""
+class FakeGeolocationResponse:
+    """模擬 Google Wi-Fi 定位成功回應。"""
 
     def raise_for_status(self) -> None:
         """輸入無，模擬 HTTP 200 不拋出例外。"""
@@ -26,12 +26,52 @@ class FakeGoogleResponse:
         }
 
 
+class FakeGeocodingResponse:
+    """模擬 Google 反向地理編碼成功回應。"""
+
+    def raise_for_status(self) -> None:
+        """輸入無，模擬 HTTP 200 不拋出例外。"""
+
+    def json(self) -> dict[str, object]:
+        """輸出英文國家、行政區與城市的 JSON。"""
+
+        return {
+            "results": [
+                {
+                    "addressComponents": [
+                        {
+                            "longText": "Taiwan",
+                            "shortText": "TW",
+                            "types": ["country", "political"],
+                        },
+                        {
+                            "longText": "Taipei City",
+                            "shortText": "Taipei City",
+                            "types": ["administrative_area_level_1", "political"],
+                        },
+                        {
+                            "longText": "Xinyi District",
+                            "shortText": "Xinyi District",
+                            "types": ["administrative_area_level_2", "political"],
+                        },
+                        {
+                            "longText": "Taipei",
+                            "shortText": "Taipei",
+                            "types": ["locality", "political"],
+                        },
+                    ]
+                }
+            ]
+        }
+
+
 class FakeGoogleClient:
     """模擬非同步 Google HTTP client，避免測試發出網路請求。"""
 
     def __init__(self) -> None:
-        self.params: dict[str, str] | None = None
-        self.body: dict[str, object] | None = None
+        self.geolocation_params: dict[str, str] | None = None
+        self.geolocation_body: dict[str, object] | None = None
+        self.geocoding_params: dict[str, float | str] | None = None
 
     async def __aenter__(self) -> "FakeGoogleClient":
         """輸入無，輸出可供 async with 使用的 client。"""
@@ -47,12 +87,23 @@ class FakeGoogleClient:
         *,
         params: dict[str, str],
         json: dict[str, object],
-    ) -> FakeGoogleResponse:
-        """輸入 Google 請求參數，輸出預設成功的定位回應。"""
+    ) -> FakeGeolocationResponse:
+        """輸入 Wi-Fi 定位請求，輸出成功的座標回應。"""
 
-        self.params = params
-        self.body = json
-        return FakeGoogleResponse()
+        self.geolocation_params = params
+        self.geolocation_body = json
+        return FakeGeolocationResponse()
+
+    async def get(
+        self,
+        _: str,
+        *,
+        params: dict[str, float | str],
+    ) -> FakeGeocodingResponse:
+        """輸入反向地理編碼請求，輸出英文行政區回應。"""
+
+        self.geocoding_params = params
+        return FakeGeocodingResponse()
 
 
 class WifiScanLocationTests(unittest.TestCase):
@@ -73,8 +124,8 @@ class WifiScanLocationTests(unittest.TestCase):
             {"macAddress": "10:22:33:44:55:66", "signalStrength": -50, "channel": 1}
         ])
 
-    def test_valid_scan_saves_latest_google_location(self) -> None:
-        """輸入兩個可用 AP，輸出寫入最新位置的 repository 呼叫。"""
+    def test_valid_scan_saves_location_and_english_area_names(self) -> None:
+        """輸入兩個可用 AP，輸出包含英文行政區的最新位置。"""
 
         client = FakeGoogleClient()
         payload = (
@@ -89,13 +140,17 @@ class WifiScanLocationTests(unittest.TestCase):
         ):
             asyncio.run(wifi_scan_service.handle_wifi_scan("cyd-01", payload))
 
-        self.assertEqual(client.params, {"key": "test-key"})
-        self.assertEqual(client.body["considerIp"], False)
-        self.assertEqual(len(client.body["wifiAccessPoints"]), 2)
+        self.assertEqual(client.geolocation_params, {"key": "test-key"})
+        self.assertEqual(client.geolocation_body["considerIp"], False)
+        self.assertEqual(len(client.geolocation_body["wifiAccessPoints"]), 2)
+        self.assertEqual(client.geocoding_params["languageCode"], "en")
         saved = save.call_args.args[0]
         self.assertEqual(saved.device_id, "cyd-01")
         self.assertEqual(saved.latitude, 25.033)
-        self.assertEqual(saved.accuracy_meters, 42.5)
+        self.assertEqual(saved.country_code, "TW")
+        self.assertEqual(saved.country_name, "Taiwan")
+        self.assertEqual(saved.admin_area_level_1, "Taipei City")
+        self.assertEqual(saved.locality, "Taipei")
 
 
 if __name__ == "__main__":

@@ -19,7 +19,37 @@ class GoogleGeolocationResponse(BaseModel):
     accuracy: float = Field(ge=0)
 
 
-class DeviceLocationInput(BaseModel):
+class GoogleAddressComponent(BaseModel):
+    """Google 回傳的一個地址組成欄位。"""
+
+    longText: str
+    shortText: str
+    types: list[str] = Field(default_factory=list)
+
+
+class GoogleGeocodingResult(BaseModel):
+    """Google 反向地理編碼的一筆結果。"""
+
+    addressComponents: list[GoogleAddressComponent] = Field(default_factory=list)
+
+
+class GoogleGeocodingResponse(BaseModel):
+    """Google Geocoding API 成功回應。"""
+
+    results: list[GoogleGeocodingResult] = Field(default_factory=list)
+
+
+class DeviceLocationNames(BaseModel):
+    """從反向地理編碼取得的英文區域名稱。"""
+
+    country_code: str | None = Field(default=None, max_length=10)
+    country_name: str | None = Field(default=None, max_length=100)
+    admin_area_level_1: str | None = Field(default=None, max_length=150)
+    admin_area_level_2: str | None = Field(default=None, max_length=150)
+    locality: str | None = Field(default=None, max_length=150)
+
+
+class DeviceLocationInput(DeviceLocationNames):
     """準備寫入資料庫的最新設備定位結果。"""
 
     device_id: str = Field(min_length=1, max_length=100)

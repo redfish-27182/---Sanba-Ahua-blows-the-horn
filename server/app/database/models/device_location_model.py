@@ -19,6 +19,11 @@ class DeviceLocation(Base):
     longitude: Mapped[float]       = mapped_column(Float)
     accuracy_meters: Mapped[float] = mapped_column(Float)
     provider: Mapped[str]          = mapped_column(String(50))
+    country_code: Mapped[str | None] = mapped_column(String(10))
+    country_name: Mapped[str | None] = mapped_column(String(100))
+    admin_area_level_1: Mapped[str | None] = mapped_column(String(150))
+    admin_area_level_2: Mapped[str | None] = mapped_column(String(150))
+    locality: Mapped[str | None] = mapped_column(String(150))
     located_at: Mapped[datetime]   = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime]   = mapped_column(
         DateTime(timezone=True),

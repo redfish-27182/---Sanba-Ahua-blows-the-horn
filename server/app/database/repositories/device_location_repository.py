@@ -23,4 +23,9 @@ def save_latest_device_location(data: DeviceLocationInput) -> None:
         location.longitude = data.longitude
         location.accuracy_meters = data.accuracy_meters
         location.provider = data.provider
+        location.country_code = data.country_code
+        location.country_name = data.country_name
+        location.admin_area_level_1 = data.admin_area_level_1
+        location.admin_area_level_2 = data.admin_area_level_2
+        location.locality = data.locality
         location.located_at = data.located_at
