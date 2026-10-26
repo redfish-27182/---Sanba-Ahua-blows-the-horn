@@ -3,7 +3,7 @@
 from pathlib import Path
 from urllib.parse import quote_plus
 
-from pydantic import field_validator
+from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # 本機前端來源，供 CORS 與文章編輯權限檢查共用。
@@ -27,6 +27,9 @@ class Settings(BaseSettings):
 
     # 未完成管理員驗證前，文章寫入預設關閉；只供本機開發使用。
     article_edit_enabled: bool = False
+
+    # Google Geolocation API 金鑰只應存在本機 .env，不能放進 ESP32、前端或 Git。
+    google_geolocation_api_key: SecretStr | None = None
 
     mqtt_host: str = ""
     mqtt_port: int = 8883

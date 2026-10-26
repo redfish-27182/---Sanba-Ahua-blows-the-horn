@@ -1,12 +1,8 @@
-# FastAPI 應用程式與本機開發伺服器。
 fastapi>=0.115,<1
 uvicorn[standard]>=0.30,<1
-
-# PostgreSQL、ORM 與資料庫結構 migration。
-SQLAlchemy>=2.0,<3
+sqlalchemy>=2.0,<3
 psycopg[binary]>=3.2,<4
 alembic>=1.14,<2
-
-# .env 設定與非同步 MQTT 用戶端。
 pydantic-settings>=2.6,<3
 aiomqtt>=2.5,<3
+httpx>=0.27,<1

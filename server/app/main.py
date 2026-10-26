@@ -37,7 +37,7 @@ def configure_application_logging() -> None:
 configure_application_logging()
 
 # 資料庫尚未提供版本資料前，先用固定版本驗證 MQTT 廣播流程。
-TEST_FIRMWARE_VERSION = "0.1.2"
+TEST_FIRMWARE_VERSION = "0.1.1"
 
 
 async def publish_firmware_version_when_connected(

@@ -30,7 +30,7 @@ async def route_message(topic: str, payload: bytes) -> None:
         return
 
     if event_path == ["wifi", "scan"]:
-        handle_wifi_scan(device_id, payload)
+        await handle_wifi_scan(device_id, payload)
         return
 
     if event_path == ["test", "ping"]:
