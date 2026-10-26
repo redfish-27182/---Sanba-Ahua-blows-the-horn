@@ -5,7 +5,7 @@ import logging
 from pydantic import ValidationError
 
 from app.database.repositories.device_status_repository import upsert_device_status
-from app.schemas.mqtt_schema import DeviceStatusMessage
+from app.schemas.device_status_schema import DeviceStatusMessage
 
 logger = logging.getLogger(__name__)
 
