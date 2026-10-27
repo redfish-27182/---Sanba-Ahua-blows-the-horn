@@ -22,3 +22,20 @@ void SystemText_Draw(
     uint16_t color, 
     bool center = false
 );
+
+// 將系統文字合成到既有 RGB565 條帶，避免 HUD 在地圖重繪時閃爍。
+// pixels：uint16_t*，條帶；bufferWidth、stripY、stripHeight：int，條帶資訊；其餘為文字區域。
+void SystemText_DrawToBuffer(
+    uint16_t *pixels,
+    int bufferWidth,
+    int stripY,
+    int stripHeight,
+    const char *zh,
+    const char *en,
+    int x,
+    int y,
+    int width,
+    int height,
+    uint16_t color,
+    bool center = false
+);

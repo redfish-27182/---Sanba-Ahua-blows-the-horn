@@ -22,6 +22,7 @@ bool TileRenderer::initialize() {
 bool TileRenderer::draw(
     const MapData &map, 
     const Camera &camera, 
+    const ScreenOverlay &overlay,
     DisplayDriver &display
 ) {
     if (!strip) {
@@ -83,6 +84,9 @@ bool TileRenderer::draw(
                 py += blockHeight;
             }
         }
+        // 在同一個條帶依序疊加 HUD 等固定介面，再一次送往 TFT。
+        // pixels：uint16_t*，目前條帶；sy、currentHeight：int，條帶螢幕位置與高度。
+        overlay.composeStrip(strip.get(), sy, currentHeight);
         display.drawStrip(sy, currentHeight, strip.get());
         yield();
     }

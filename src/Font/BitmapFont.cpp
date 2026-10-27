@@ -203,3 +203,65 @@ void BitmapFont::drawTextBox(TFT_eSPI &tft, const char *text, int x, int y, int 
         height -= 16;
     }
 }
+
+// 將文字的可見像素寫入一條 RGB565 緩衝區，不直接操作螢幕。
+// pixels：uint16_t*，條帶資料；bufferWidth、stripY、stripHeight：int，條帶資訊；其餘為文字區域。
+void BitmapFont::drawTextBoxToBuffer(
+    uint16_t *pixels,
+    int bufferWidth,
+    int stripY,
+    int stripHeight,
+    const char *text,
+    int x,
+    int y,
+    int width,
+    int height,
+    uint16_t color,
+    bool center
+) const {
+    if (!pixels || !text || !records || bufferWidth < 16 || stripHeight < 1
+        || x < 0 || y < 0 || width < 16 || height < 16) {
+        return;
+    }
+
+    const int columns = width / 16;
+    if (columns < 1) return;
+
+    while (*text && height >= 16) {
+        const char *lineStart = text;
+        int countInLine = 0;
+        while (*text && countInLine < columns) {
+            const char *next = text;
+            const uint32_t codepoint = nextCodepoint(next);
+            if (codepoint == '\n') break;
+            text = next;
+            if (codepoint != '\r') ++countInLine;
+        }
+
+        int glyphX = x + (center ? (width - countInLine * 16) / 2 : 0);
+        while (lineStart < text) {
+            const uint32_t codepoint = nextCodepoint(lineStart);
+            if (codepoint == '\r') continue;
+            const uint8_t *glyph = findGlyph(codepoint);
+            if (!glyph) glyph = findGlyph(fallbackCodepoint);
+            if (glyph) {
+                for (int row = 0; row < 16; ++row) {
+                    const int screenY = y + row;
+                    if (screenY < stripY || screenY >= stripY + stripHeight) continue;
+                    const uint16_t bits = (uint16_t(glyph[row * 2]) << 8) | glyph[row * 2 + 1];
+                    for (int column = 0; column < 16; ++column) {
+                        const int screenX = glyphX + column;
+                        if (screenX < 0 || screenX >= bufferWidth) continue;
+                        if (bits & (0x8000u >> column)) {
+                            pixels[(screenY - stripY) * bufferWidth + screenX] = color;
+                        }
+                    }
+                }
+            }
+            glyphX += 16;
+        }
+        if (*text == '\n') ++text;
+        y += 16;
+        height -= 16;
+    }
+}

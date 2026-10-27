@@ -1,6 +1,7 @@
 #pragma once
 #include "Display/TileRenderer.h"
 #include "EventTypes.h"
+#include "UI/Hud/HudLayer.h"
 
 class GameScene {
 public:
@@ -28,6 +29,7 @@ private:
     DisplayDriver &display;
     Camera camera;
     TileRenderer renderer;
+    HudLayer hud;
     bool dirty    = true;     // 是否需要重畫
     bool dragging = false;    // 是否正在拖曳
     int lastX = 0, lastY = 0; // 上次觸控座標

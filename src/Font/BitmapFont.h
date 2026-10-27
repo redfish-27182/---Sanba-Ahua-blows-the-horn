@@ -21,6 +21,22 @@ public:
     // x、y、width、height：int，顯示區域；center：bool，是否逐行置中。
     void drawTextBox(TFT_eSPI &tft, const char *text, int x, int y, int width, int height, uint16_t color, bool center = false) const;
 
+    // 將文字合成到指定螢幕條帶的 RGB565 緩衝區。
+    // pixels：uint16_t*，條帶資料；bufferWidth、stripY、stripHeight：int，條帶尺寸與位置；其餘為文字區域。
+    void drawTextBoxToBuffer(
+        uint16_t *pixels,
+        int bufferWidth,
+        int stripY,
+        int stripHeight,
+        const char *text,
+        int x,
+        int y,
+        int width,
+        int height,
+        uint16_t color,
+        bool center = false
+    ) const;
+
 private:
     // 在已載入的排序索引中查詢字形。
     const uint8_t *findGlyph(uint32_t codepoint) const; // 查詢字形，若無則回傳 nullptr。

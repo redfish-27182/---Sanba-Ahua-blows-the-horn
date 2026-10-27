@@ -1,5 +1,6 @@
 #pragma once
 #include "Display/DisplayDriver.h"
+#include "Display/ScreenOverlay.h"
 #include "Config.h"
 #include "Game/Camera.h"
 #include "Map/MapData.h"
@@ -11,12 +12,13 @@ public:
     // 無輸入；回傳：bool，是否成功配置。
     bool initialize();
 
-    // 繪製鏡頭內的圖層。
-    // map：const MapData&，地圖；camera：const Camera&，鏡頭；display：DisplayDriver&，螢幕。
+    // 繪製鏡頭內地圖，並在送出前合成螢幕固定圖層。
+    // map：const MapData&，地圖；camera：const Camera&，鏡頭；overlay：const ScreenOverlay&，疊加圖層；display：DisplayDriver&，螢幕。
     // 回傳：bool，是否成功配置緩衝區並繪製。
     bool draw(
         const MapData &map, 
         const Camera &camera, 
+        const ScreenOverlay &overlay,
         DisplayDriver &display
     );
 

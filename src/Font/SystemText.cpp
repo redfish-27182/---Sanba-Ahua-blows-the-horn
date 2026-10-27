@@ -60,3 +60,35 @@ void SystemText_Draw(
         screen.drawString(line, center ? x + width / 2 : x, y, 2);
     }
 }
+
+// 將已載入字庫的文字寫入 RGB565 條帶；字庫缺失時保留面板，不直接操作 TFT。
+// pixels：uint16_t*，條帶；bufferWidth、stripY、stripHeight：int，條帶資訊；其餘為文字區域。
+void SystemText_DrawToBuffer(
+    uint16_t *pixels,
+    int bufferWidth,
+    int stripY,
+    int stripHeight,
+    const char *zh,
+    const char *en,
+    int x,
+    int y,
+    int width,
+    int height,
+    uint16_t color,
+    bool center
+) {
+    if (!ready) return;
+    systemFont.drawTextBoxToBuffer(
+        pixels,
+        bufferWidth,
+        stripY,
+        stripHeight,
+        SystemText_Choose(zh, en),
+        x,
+        y,
+        width,
+        height,
+        color,
+        center
+    );
+}
