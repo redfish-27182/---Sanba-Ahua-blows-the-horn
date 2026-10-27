@@ -75,7 +75,8 @@ void SystemText_DrawToBuffer(
     int width,
     int height,
     uint16_t color,
-    bool center
+    bool center,
+    int letterSpacing
 ) {
     if (!ready) return;
     systemFont.drawTextBoxToBuffer(
@@ -89,6 +90,7 @@ void SystemText_DrawToBuffer(
         width,
         height,
         color,
-        center
+        center,
+        letterSpacing
     );
 }

@@ -41,6 +41,7 @@ void MqttTlsClient::begin(const char *host, uint16_t port, MessageCallback callb
 
 bool MqttTlsClient::synchronizeClock(uint32_t timeoutMs) {
     // TLS 驗證需要正確時間；校時失敗時絕不退回不驗證憑證的連線方式。
+    // 系統時鐘固定維持 UTC；HUD 用後端偏移量顯示設備所在地時間。
     configTime(0, 0, "pool.ntp.org", "time.nist.gov");
     tm timeInfo{};
     Serial.print("Waiting for NTP time");

@@ -15,6 +15,10 @@ public:
     // weather：const WeatherState&，已驗證天氣狀態；回傳：bool，是否需要重繪。
     bool setWeather(const WeatherState &weather);
 
+    // 每秒檢查一次本地分鐘是否變化。
+    // nowMs：uint32_t，目前 millis；回傳：bool，是否需要重繪。
+    bool updateClock(uint32_t nowMs);
+
     // 在送往螢幕前合成天氣面板、選單按鈕與已展開的選單。
     // pixels：uint16_t*，RGB565 條帶；screenY、height：int，條帶的螢幕位置及高度。
     void composeStrip(uint16_t *pixels, int screenY, int height) const override;
@@ -31,8 +35,7 @@ private:
     };
 
     static constexpr int MARGIN = 8;
-    static constexpr int WEATHER_WIDTH = 152;
-    static constexpr int WEATHER_HEIGHT = 44;
+    static constexpr int WEATHER_HEIGHT = 28;
     static constexpr int WEATHER_CORNER_RADIUS = 2;
     static constexpr int MENU_BUTTON_SIZE = 36;
     static constexpr int MENU_WIDTH = 112;
@@ -43,8 +46,14 @@ private:
     bool redrawRequested = false;
     bool hasWeather = false;
     int selectedItem = -1;
+    uint32_t nextClockCheckAt = 0;
+    int32_t lastClockMinute = -1;
     TouchCapture capture = TouchCapture::NONE;
     WeatherState weather{};
+
+    // 計算目前天氣文字所需的面板寬度。
+    // 無輸入；回傳：int，包含左右相同內距的面板寬度。
+    int weatherPanelWidth() const;
 
     // 判斷座標是否位於右上選單按鈕。
     // x、y：int，螢幕座標；回傳：bool，是否命中。

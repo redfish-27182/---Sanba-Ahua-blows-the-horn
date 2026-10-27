@@ -22,7 +22,7 @@ public:
     void drawTextBox(TFT_eSPI &tft, const char *text, int x, int y, int width, int height, uint16_t color, bool center = false) const;
 
     // 將文字合成到指定螢幕條帶的 RGB565 緩衝區。
-    // pixels：uint16_t*，條帶資料；bufferWidth、stripY、stripHeight：int，條帶尺寸與位置；其餘為文字區域。
+    // pixels：uint16_t*，條帶資料；bufferWidth、stripY、stripHeight：int，條帶尺寸與位置；letterSpacing：int，字距調整像素。
     void drawTextBoxToBuffer(
         uint16_t *pixels,
         int bufferWidth,
@@ -34,7 +34,8 @@ public:
         int width,
         int height,
         uint16_t color,
-        bool center = false
+        bool center = false,
+        int letterSpacing = 0
     ) const;
 
 private:

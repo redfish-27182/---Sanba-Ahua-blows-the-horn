@@ -57,10 +57,13 @@ void SceneManager::setWeather(const WeatherState &weather) {
 
 // 畫面需要更新時同步繪製；失敗顯示錯誤。
 void SceneManager::update() {
-    if (game && !game -> drawIfNeeded()) { 
-        game.reset(); 
-        failureMessage = SystemText_Choose("記憶體不足，無法顯示畫面。", "Not enough memory to render."); 
-        loading.show(display, failureMessage); 
+    if (game) {
+        game->update();
+    }
+    if (game && !game->drawIfNeeded()) {
+        game.reset();
+        failureMessage = SystemText_Choose("記憶體不足，無法顯示畫面。", "Not enough memory to render.");
+        loading.show(display, failureMessage);
     }
 }
 

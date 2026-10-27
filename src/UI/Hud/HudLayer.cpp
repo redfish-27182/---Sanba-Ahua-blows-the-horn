@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <ctime>
 
 #include "Config.h"
 #include "Font/SystemText.h"
@@ -13,6 +14,11 @@ constexpr uint16_t HUD_BORDER = 0x4E7F;
 constexpr uint16_t HUD_TEXT = 0x18C3;
 constexpr uint16_t HUD_BUTTON = 0xDFFF;
 constexpr uint16_t HUD_SELECTED = 0xB7F5;
+
+constexpr int GLYPH_WIDTH = 16;
+constexpr int HUD_TEXT_PADDING = 8;
+constexpr int HUD_SECTION_GAP = 10;
+constexpr int TEMPERATURE_LETTER_SPACING = -4;
 
 constexpr const char *MENU_LABELS_ZH[] = {"設定", "資訊", "說明"};
 constexpr const char *MENU_LABELS_EN[] = {"SETTINGS", "INFO", "HELP"};
@@ -111,7 +117,7 @@ void drawRoundedRectToStrip(
 }
 
 // 將系統文字寫入目前條帶。
-// pixels：uint16_t*，條帶；screenY、stripHeight：int，條帶資訊；其餘為文字資料。
+// pixels：uint16_t*，條帶；screenY、stripHeight：int，條帶資訊；letterSpacing：int，字距調整像素。
 void drawTextToStrip(
     uint16_t *pixels,
     int screenY,
@@ -122,7 +128,8 @@ void drawTextToStrip(
     int y,
     int width,
     int height,
-    uint16_t color
+    uint16_t color,
+    int letterSpacing = 0
 ) {
     SystemText_DrawToBuffer(
         pixels,
@@ -135,7 +142,9 @@ void drawTextToStrip(
         y,
         width,
         height,
-        color
+        color,
+        false,
+        letterSpacing
     );
 }
 
@@ -148,6 +157,43 @@ const char *conditionLabel(uint16_t conditionCode) {
         return "陰";
     }
     return "雨";
+}
+
+// 以全域 UTC 時鐘和後端偏移量換算設備所在地的時間。
+// utcOffsetMinutes：int16_t，UTC 偏移分鐘；output：tm&，換算後本地時間；回傳：bool，時間是否可用。
+bool localTimeFromUtcOffset(int16_t utcOffsetMinutes, tm &output) {
+    const time_t utcNow = time(nullptr);
+    if (utcNow < 1600000000) return false;
+    const time_t localNow = utcNow + time_t(utcOffsetMinutes) * 60;
+    return gmtime_r(&localNow, &output) != nullptr;
+}
+
+// 計算 UTF-8 字串內的字形數量，不把 UTF-8 的延續位元組算成另一個字。
+// text：const char*，UTF-8 字串；回傳：int，字形數量。
+int utf8GlyphCount(const char *text) {
+    int count = 0;
+    while (*text) {
+        const uint8_t byte = static_cast<uint8_t>(*text++);
+        if ((byte & 0xC0) != 0x80) ++count;
+    }
+    return count;
+}
+
+// 計算縮小字距後的實際像素寬度。
+// text：const char*，UTF-8 字串；letterSpacing：int，字距調整像素；回傳：int，像素寬度。
+int compactTextWidth(const char *text, int letterSpacing) {
+    const int glyphCount = utf8GlyphCount(text);
+    if (glyphCount < 1) return 0;
+    return GLYPH_WIDTH + (glyphCount - 1) * (GLYPH_WIDTH + letterSpacing);
+}
+
+// 產生 HUD 顯示的整數溫度文字。
+// temperatureTenthsC：int16_t，攝氏溫度乘以十；output：char*，輸出的 UTF-8 文字。
+void formatTemperature(int16_t temperatureTenthsC, char *output, size_t outputSize) {
+    const int roundedTemperature = temperatureTenthsC >= 0
+        ? (temperatureTenthsC + 5) / 10
+        : (temperatureTenthsC - 5) / 10;
+    snprintf(output, outputSize, "%d°C", roundedTemperature);
 }
 }
 
@@ -162,7 +208,7 @@ bool HudLayer::handleInput(const InputEvent &event) {
         }
 
         // 天氣面板暫不提供操作，但仍攔截從面板開始的手勢。
-        if (event.x >= MARGIN && event.x < MARGIN + WEATHER_WIDTH
+        if (event.x >= MARGIN && event.x < MARGIN + weatherPanelWidth()
             && event.y >= MARGIN && event.y < MARGIN + WEATHER_HEIGHT) {
             capture = TouchCapture::WEATHER_PANEL;
             return true;
@@ -214,10 +260,50 @@ bool HudLayer::handleInput(const InputEvent &event) {
 bool HudLayer::setWeather(const WeatherState &state) {
     const bool changed = !hasWeather
         || weather.temperatureTenthsC != state.temperatureTenthsC
-        || weather.conditionCode != state.conditionCode;
+        || weather.conditionCode != state.conditionCode
+        || weather.utcOffsetMinutes != state.utcOffsetMinutes;
     weather = state;
     hasWeather = true;
     return changed;
+}
+
+// 低頻檢查本地分鐘，分鐘變化時才要求遊戲重繪 HUD。
+// nowMs：uint32_t，目前 millis；回傳：bool，是否需要重繪。
+bool HudLayer::updateClock(uint32_t nowMs) {
+    if (static_cast<int32_t>(nowMs - nextClockCheckAt) < 0) {
+        return false;
+    }
+    nextClockCheckAt = nowMs + 1000;
+    if (!hasWeather) return false;
+
+    const time_t utcNow = time(nullptr);
+    if (utcNow < 1600000000) return false;
+    const time_t localNow = utcNow + time_t(weather.utcOffsetMinutes) * 60;
+    const int32_t currentMinute = static_cast<int32_t>(localNow / 60);
+    if (currentMinute == lastClockMinute) return false;
+
+    lastClockMinute = currentMinute;
+    return true;
+}
+
+// 計算目前字串需要的面板寬度，確保左右文字內距相同。
+// 無輸入；回傳：int，面板像素寬度。
+int HudLayer::weatherPanelWidth() const {
+    char temperatureText[16]{};
+    if (hasWeather) {
+        formatTemperature(weather.temperatureTenthsC, temperatureText, sizeof(temperatureText));
+    } else {
+        snprintf(temperatureText, sizeof(temperatureText), "--°C");
+    }
+
+    const int contentWidth = GLYPH_WIDTH * 5
+        + HUD_SECTION_GAP
+        + GLYPH_WIDTH
+        + HUD_SECTION_GAP
+        + GLYPH_WIDTH
+        + HUD_SECTION_GAP
+        + compactTextWidth(temperatureText, TEMPERATURE_LETTER_SPACING);
+    return contentWidth + HUD_TEXT_PADDING * 2;
 }
 
 // 在每一條地圖條帶內合成 HUD，避免直接繪圖造成閃爍。
@@ -261,33 +347,46 @@ int HudLayer::menuItemAt(int x, int y) const {
 // 繪製左上角的暫定天氣資料到目前條帶。
 // pixels：uint16_t*，RGB565 條帶；screenY、height：int，條帶資訊。
 void HudLayer::drawWeatherPanel(uint16_t *pixels, int screenY, int height) const {
+    const int panelWidth = weatherPanelWidth();
     fillRoundedRectToStrip(
         pixels, screenY, height, MARGIN + 2, MARGIN + 2,
-        WEATHER_WIDTH, WEATHER_HEIGHT, WEATHER_CORNER_RADIUS, HUD_SHADOW
+        panelWidth, WEATHER_HEIGHT, WEATHER_CORNER_RADIUS, HUD_SHADOW
     );
     fillRoundedRectToStrip(
         pixels, screenY, height, MARGIN, MARGIN,
-        WEATHER_WIDTH, WEATHER_HEIGHT, WEATHER_CORNER_RADIUS, HUD_PANEL
+        panelWidth, WEATHER_HEIGHT, WEATHER_CORNER_RADIUS, HUD_PANEL
     );
     drawRoundedRectToStrip(
         pixels, screenY, height, MARGIN, MARGIN,
-        WEATHER_WIDTH, WEATHER_HEIGHT, WEATHER_CORNER_RADIUS, HUD_BORDER
+        panelWidth, WEATHER_HEIGHT, WEATHER_CORNER_RADIUS, HUD_BORDER
     );
 
-    char conditionText[20]{};
-    char temperatureText[24]{};
-    if (hasWeather) {
-        const int roundedTemperature = weather.temperatureTenthsC >= 0
-            ? (weather.temperatureTenthsC + 5) / 10
-            : (weather.temperatureTenthsC - 5) / 10;
-        snprintf(conditionText, sizeof(conditionText), "天氣：%s", conditionLabel(weather.conditionCode));
-        snprintf(temperatureText, sizeof(temperatureText), "溫度：%d°C", roundedTemperature);
+    char timeText[8]{};
+    char weatherText[8]{};
+    char temperatureText[16]{};
+    tm localTime{};
+    if (hasWeather && localTimeFromUtcOffset(weather.utcOffsetMinutes, localTime)) {
+        snprintf(timeText, sizeof(timeText), "%02d:%02d", localTime.tm_hour, localTime.tm_min);
+        snprintf(weatherText, sizeof(weatherText), "%s", conditionLabel(weather.conditionCode));
+        formatTemperature(weather.temperatureTenthsC, temperatureText, sizeof(temperatureText));
     } else {
-        snprintf(conditionText, sizeof(conditionText), "天氣：--");
-        snprintf(temperatureText, sizeof(temperatureText), "溫度：--°C");
+        snprintf(timeText, sizeof(timeText), "--:--");
+        snprintf(weatherText, sizeof(weatherText), "□");
+        snprintf(temperatureText, sizeof(temperatureText), "--°C");
     }
-    drawTextToStrip(pixels, screenY, height, conditionText, "Weather: --", MARGIN + 8, MARGIN + 4, WEATHER_WIDTH - 16, 16, HUD_TEXT);
-    drawTextToStrip(pixels, screenY, height, temperatureText, "Temp: --C", MARGIN + 8, MARGIN + 22, WEATHER_WIDTH - 16, 16, HUD_TEXT);
+
+    int textX = MARGIN + HUD_TEXT_PADDING;
+    drawTextToStrip(pixels, screenY, height, timeText, "--:--", textX, MARGIN + 6, GLYPH_WIDTH * 5, 16, HUD_TEXT);
+    textX += GLYPH_WIDTH * 5 + HUD_SECTION_GAP;
+    drawTextToStrip(pixels, screenY, height, weatherText, "?", textX, MARGIN + 6, GLYPH_WIDTH, 16, HUD_TEXT);
+    textX += GLYPH_WIDTH + HUD_SECTION_GAP;
+    drawTextToStrip(pixels, screenY, height, "/", "/", textX, MARGIN + 6, GLYPH_WIDTH, 16, HUD_TEXT);
+    textX += GLYPH_WIDTH + HUD_SECTION_GAP;
+    drawTextToStrip(
+        pixels, screenY, height, temperatureText, "--C", textX, MARGIN + 6,
+        compactTextWidth(temperatureText, TEMPERATURE_LETTER_SPACING), 16,
+        HUD_TEXT, TEMPERATURE_LETTER_SPACING
+    );
 }
 
 // 繪製右上角的三橫線選單按鈕到目前條帶。

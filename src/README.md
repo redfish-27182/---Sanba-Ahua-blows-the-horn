@@ -44,7 +44,8 @@ inputQueue                                  │  MqttEventRouter
 | `UI/UiTask.cpp` | 接收佇列事件，呼叫畫面管理與更新流程。 |
 | `UI/SceneManager.cpp` | 顯示載入畫面、呼叫地圖載入器、管理遊戲畫面及重畫。 |
 | `UI/Scenes/LoadingScene.h` | 顯示載入中或錯誤訊息。 |
-| `UI/Scenes/GameScene.cpp` | 接收觸控事件，更新鏡頭並安排遊戲畫面重繪。 |
+| `UI/Scenes/GameScene.cpp` | 接收觸控事件，更新鏡頭；每秒檢查 HUD 當地時間並在跨分鐘時安排重繪。 |
+| `UI/Hud/HudLayer.cpp` | 將天氣與選單合成到地圖像素列；用 UTC 時鐘和後端時區偏移顯示當地時間。 |
 | `UI/PromptDialog.cpp` | 繪製提示視窗，直接從 `inputQueue` 等待使用者回答。 |
 | `Game/Camera.cpp` | 管理鏡頭原點，根據拖曳位移移動並限制邊界。 |
 | `Map/MapData.h` | 定義 SRAM 中的地圖、瓦片索引與像素資料。 |
@@ -115,15 +116,28 @@ MQTT Task → MqttEventRouter → uiEventQueue → UiTask → UpdateManager
 
 `UpdateManager` 不再是獨立 Task，因此目前不需要 `uiResponseQueue` 來交接使用者選擇或 OTA 螢幕使用權。
 
+## 天氣時間流程
+
+```text
+NTP（MqttTask）→ 全域系統時鐘維持 UTC
+WeatherAPI → 後端依設備座標取得 IANA 時區 → UTC 偏移分鐘 z
+MQTT retained JSON（t、c、p、at、z）→ MqttEventRouter → uiEventQueue
+UiTask → GameScene → HudLayer：UTC + z → 15:01 雨 / 24°C
+```
+
+ESP32 不設定固定的全域時區，因此不同國家設備都能依各自的 `z` 顯示時間。HUD 每秒檢查一次，但只有跨分鐘或天氣資料改變才重繪。
+
 ## SD 卡檔案
 
 ```text
 SD 卡根目錄 /
-└── game/
-    ├── maps/
-    │   └── first_map.bin
-    └── tilesets/
-        └── tileset.bin
+├── game/
+│   ├── maps/
+│   │   └── first_map.bin
+│   └── tilesets/
+│       └── tileset.bin
+└── fonts/
+    └── system.bin
 ```
 
-這兩個檔案需使用相容的轉檔結果。開機載入後，地圖與所需瓦片素材保存在 SRAM；原始 `.tmx`、`.png` 及轉檔用 `.json` 不必放到 SD 卡。
+地圖與瓦片檔需使用相容的轉檔結果，`system.bin` 則是系統中文字庫。開機載入後，地圖與所需瓦片素材保存在 SRAM；原始 `.tmx`、`.png` 及轉檔用 `.json` 不必放到 SD 卡。

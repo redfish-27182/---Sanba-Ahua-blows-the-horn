@@ -1,5 +1,6 @@
 #include "Font/BitmapFont.h"
 
+#include <algorithm>
 #include <SD.h>
 #include <cstring>
 #include <new>
@@ -217,14 +218,16 @@ void BitmapFont::drawTextBoxToBuffer(
     int width,
     int height,
     uint16_t color,
-    bool center
+    bool center,
+    int letterSpacing
 ) const {
     if (!pixels || !text || !records || bufferWidth < 16 || stripHeight < 1
         || x < 0 || y < 0 || width < 16 || height < 16) {
         return;
     }
 
-    const int columns = width / 16;
+    const int glyphAdvance = std::max(1, 16 + letterSpacing);
+    const int columns = 1 + (width - 16) / glyphAdvance;
     if (columns < 1) return;
 
     while (*text && height >= 16) {
@@ -238,7 +241,8 @@ void BitmapFont::drawTextBoxToBuffer(
             if (codepoint != '\r') ++countInLine;
         }
 
-        int glyphX = x + (center ? (width - countInLine * 16) / 2 : 0);
+        const int lineWidth = 16 + (countInLine - 1) * glyphAdvance;
+        int glyphX = x + (center ? (width - lineWidth) / 2 : 0);
         while (lineStart < text) {
             const uint32_t codepoint = nextCodepoint(lineStart);
             if (codepoint == '\r') continue;
@@ -258,7 +262,7 @@ void BitmapFont::drawTextBoxToBuffer(
                     }
                 }
             }
-            glyphX += 16;
+            glyphX += glyphAdvance;
         }
         if (*text == '\n') ++text;
         y += 16;

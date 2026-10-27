@@ -12,6 +12,8 @@ namespace {
 constexpr size_t WEATHER_JSON_CAPACITY = 128;
 constexpr float MIN_TEMPERATURE_C = -60.0f;
 constexpr float MAX_TEMPERATURE_C = 70.0f;
+constexpr int MIN_UTC_OFFSET_MINUTES = -720;
+constexpr int MAX_UTC_OFFSET_MINUTES = 840;
 
 // 將已驗證事件放進 UiTask 共用 Queue。
 // event：const UiEvent&，UI 事件；回傳：bool，是否成功送入 Queue。
@@ -55,6 +57,7 @@ bool routeWeatherUpdate(const uint8_t *payload, size_t length) {
     const float temperature = document["t"] | NAN;
     const int conditionCode = document["c"] | -1;
     const int rainProbability = document["p"] | -1;
+    const int utcOffsetMinutes = document["z"] | INT16_MAX;
     const uint32_t observedAt = document["at"] | 0u;
     const int temperatureTenths = lroundf(temperature * 10.0f);
     if (!std::isfinite(temperature)
@@ -64,6 +67,8 @@ bool routeWeatherUpdate(const uint8_t *payload, size_t length) {
         || conditionCode > UINT16_MAX
         || rainProbability < 0
         || rainProbability > 100
+        || utcOffsetMinutes < MIN_UTC_OFFSET_MINUTES
+        || utcOffsetMinutes > MAX_UTC_OFFSET_MINUTES
         || observedAt == 0
         || temperatureTenths < INT16_MIN
         || temperatureTenths > INT16_MAX) {
@@ -76,15 +81,17 @@ bool routeWeatherUpdate(const uint8_t *payload, size_t length) {
     event.weather.temperatureTenthsC = static_cast<int16_t>(temperatureTenths);
     event.weather.conditionCode = static_cast<uint16_t>(conditionCode);
     event.weather.rainProbability = static_cast<uint8_t>(rainProbability);
+    event.weather.utcOffsetMinutes = static_cast<int16_t>(utcOffsetMinutes);
     event.weather.observedAt = observedAt;
     if (!sendUiEvent(event)) return false;
 
     Serial.printf(
-        "[Weather] UI event: %d.%d C, code=%u, rain=%u%%\n",
+        "[Weather] UI event: %d.%d C, code=%u, rain=%u%%, UTC%+d min\n",
         event.weather.temperatureTenthsC / 10,
         abs(event.weather.temperatureTenthsC % 10),
         event.weather.conditionCode,
-        event.weather.rainProbability
+        event.weather.rainProbability,
+        event.weather.utcOffsetMinutes
     );
     return true;
 }

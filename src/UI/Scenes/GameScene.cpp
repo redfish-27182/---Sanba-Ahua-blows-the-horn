@@ -58,6 +58,14 @@ void GameScene::setWeather(const WeatherState &weather) {
     }
 }
 
+// 檢查 HUD 時鐘是否跨分鐘。
+// 無輸入；時間改變時只標記 dirty，實際繪製仍由 UiTask 統一處理。
+void GameScene::update() {
+    if (hud.updateClock(millis())) {
+        dirty = true;
+    }
+}
+
 // 地圖或鏡頭改變後重畫整個可見區域。
 // 回傳：bool，是否成功。
 bool GameScene::drawIfNeeded() {

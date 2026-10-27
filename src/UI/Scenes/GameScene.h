@@ -21,6 +21,10 @@ public:
     // weather：const WeatherState&，目前天氣狀態。
     void setWeather(const WeatherState &weather);
 
+    // 檢查 HUD 中需要隨時間更新的內容。
+    // 無輸入；每秒檢查一次本機 UTC 時鐘，跨分鐘時要求重繪。
+    void update();
+
     // 需要更新時繪製畫面。
     // 回傳：bool，繪製是否成功。
     bool drawIfNeeded();

@@ -12,6 +12,7 @@ struct WeatherState {
     int16_t temperatureTenthsC; // 攝氏溫度乘以 10，例如 265 代表 26.5°C。
     uint16_t conditionCode;     // WeatherAPI 天氣代碼。
     uint8_t rainProbability;    // 降雨機率，範圍 0 到 100。
+    int16_t utcOffsetMinutes;   // 後端依定位地點計算的 UTC 偏移分鐘數。
     uint32_t observedAt;        // 後端提供的觀測 Unix 時間。
 };
 
