@@ -1,15 +1,23 @@
 """依照 MQTT topic 的樹狀結構，分流 ESP32 傳來的事件。"""
 
 import logging
+from typing import TYPE_CHECKING
 
 from app.mqtt.topics                         import DEVICE_EVENTS_TOPIC_ROOT
 from app.services.devices.device_status_service import handle_device_status
 from app.services.devices.wifi_scan_service import handle_wifi_scan
 
+if TYPE_CHECKING:
+    from app.mqtt.client import MqttClient
+
 logger = logging.getLogger(__name__)
 
 
-async def route_message(topic: str, payload: bytes) -> None:
+async def route_message(
+    topic: str,
+    payload: bytes,
+    mqtt_client: "MqttClient",
+) -> None:
     """解析 ahou/events/devices/{device_id}/... 並交給對應處理。"""
 
     device_topic_prefix = f"{DEVICE_EVENTS_TOPIC_ROOT}/"
@@ -30,7 +38,7 @@ async def route_message(topic: str, payload: bytes) -> None:
         return
 
     if event_path == ["wifi", "scan"]:
-        await handle_wifi_scan(device_id, payload)
+        await handle_wifi_scan(device_id, payload, mqtt_client)
         return
 
     if event_path == ["test", "ping"]:

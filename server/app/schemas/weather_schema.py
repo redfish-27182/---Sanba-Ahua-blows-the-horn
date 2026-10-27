@@ -62,3 +62,14 @@ class DeviceWeatherInput(BaseModel):
     observed_at: datetime
     fetched_at: datetime
     provider: str = Field(default="weatherapi", max_length=50)
+
+
+class DeviceWeatherMqttPayload(BaseModel):
+    """發送給 ESP32 的精簡最新天氣 MQTT JSON。"""
+
+    at: int = Field(ge=0)
+    t: float
+    h: int = Field(ge=0, le=100)
+    f: float
+    c: int
+    p: int = Field(ge=0, le=100)

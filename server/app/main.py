@@ -59,7 +59,7 @@ async def lifespan(app: FastAPI):
     app.state.mqtt_client = mqtt_client
     await mqtt_client.start()
 
-    weather_refresh_task = WeatherRefreshTask()
+    weather_refresh_task = WeatherRefreshTask(mqtt_client)
     app.state.weather_refresh_task = weather_refresh_task
     await weather_refresh_task.start()
 

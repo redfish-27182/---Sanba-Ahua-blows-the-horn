@@ -13,3 +13,9 @@ BROADCAST_COMMANDS_TOPIC_ROOT = f"{COMMANDS_TOPIC_ROOT}/broadcast"
 DEVICE_COMMANDS_TOPIC_ROOT = f"{COMMANDS_TOPIC_ROOT}/devices"
 
 FIRMWARE_VERSION_TOPIC = f"{BROADCAST_COMMANDS_TOPIC_ROOT}/firmware/version"
+
+
+def device_weather_topic(device_id: str) -> str:
+    """輸入設備 ID，輸出該設備接收最新天氣的 MQTT topic。"""
+
+    return f"{DEVICE_COMMANDS_TOPIC_ROOT}/{device_id}/weather/current"

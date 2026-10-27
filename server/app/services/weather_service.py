@@ -1,20 +1,27 @@
 """向 WeatherAPI 取得並保存設備最新天氣。"""
 
+# 標準庫
 from datetime import datetime, timezone
 import logging
+from typing import TYPE_CHECKING
 
+# 第三方庫
 import httpx
 from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.config.settings import settings
-from app.database.repositories.device_location_repository import (
-    get_all_device_locations,
+from app.database.repositories.device_location_repository import get_all_device_locations
+from app.database.repositories.device_weather_repository import save_latest_device_weather
+from app.mqtt.topics import device_weather_topic
+from app.schemas.weather_schema import (
+    DeviceWeatherInput,
+    DeviceWeatherMqttPayload,
+    WeatherApiResponse,
 )
-from app.database.repositories.device_weather_repository import (
-    save_latest_device_weather,
-)
-from app.schemas.weather_schema import DeviceWeatherInput, WeatherApiResponse
+
+if TYPE_CHECKING:
+    from app.mqtt.client import MqttClient
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +33,6 @@ async def fetch_weather_from_weatherapi(
     api_key: str,
 ) -> WeatherApiResponse | None:
     """輸入座標與 WeatherAPI 金鑰，輸出即時天氣與當日預報或 None。"""
-
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(
@@ -51,7 +57,34 @@ async def fetch_weather_from_weatherapi(
     return None
 
 
+async def publish_weather_to_device(
+    mqtt_client: "MqttClient",
+    data: DeviceWeatherInput,
+) -> None:
+    """輸入 MQTT client 與已保存天氣，發布設備專屬 retained 訊息。"""
+
+    payload = DeviceWeatherMqttPayload(
+        at=int(data.observed_at.timestamp()),
+        t=data.temperature_c,
+        h=data.relative_humidity,
+        f=data.feels_like_c,
+        c=data.weather_code,
+        p=data.precipitation_probability,
+    )
+
+    try:
+        await mqtt_client.publish(
+            device_weather_topic(data.device_id),
+            payload.model_dump_json(),
+            retained=True,
+            qos=1,
+        )
+    except Exception as error:
+        logger.warning("設備 %s 的天氣 MQTT 發布失敗：%s", data.device_id, error)
+
+
 async def refresh_weather_for_device(
+    mqtt_client: "MqttClient",
     device_id: str,
     latitude: float,
     longitude: float,
@@ -93,7 +126,10 @@ async def refresh_weather_for_device(
         logger.exception("設備 %s 的天氣結果無法寫入資料庫。", device_id)
         return False
 
-    # 4. 成功更新後顯示訊息。
+    # 4. 發布 retained MQTT 訊息給設備。
+    await publish_weather_to_device(mqtt_client, data)
+
+    # 5. 成功更新後顯示訊息。
     logger.info(
         "設備 %s 天氣更新完成：%.1f°C，濕度 %s%%，%s。",
         device_id,
@@ -104,7 +140,7 @@ async def refresh_weather_for_device(
     return True
 
 
-async def refresh_all_device_weather() -> None:
+async def refresh_all_device_weather(mqtt_client: "MqttClient") -> None:
     """依所有已知設備座標逐台更新最新天氣。"""
 
     locations = get_all_device_locations()
@@ -115,6 +151,7 @@ async def refresh_all_device_weather() -> None:
     logger.info("開始更新 %s 台已定位設備的天氣。", len(locations))
     for location in locations:
         await refresh_weather_for_device(
+            mqtt_client,
             location.device_id,
             location.latitude,
             location.longitude,

@@ -4,9 +4,13 @@ import asyncio
 import contextlib
 from datetime import datetime, timedelta
 import logging
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 from app.services.weather_service import refresh_all_device_weather
+
+if TYPE_CHECKING:
+    from app.mqtt.client import MqttClient
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +30,10 @@ def seconds_until_next_refresh(now: datetime | None = None) -> float:
 class WeatherRefreshTask:
     """管理開機立即更新與每小時 :05 的天氣背景工作。"""
 
-    def __init__(self) -> None:
-        """輸入無，建立尚未啟動的背景工作狀態。"""
+    def __init__(self, mqtt_client: "MqttClient") -> None:
+        """輸入 MQTT client，建立尚未啟動的背景工作狀態。"""
 
+        self._mqtt_client = mqtt_client
         self._task: asyncio.Task[None] | None = None
         self._stop_event = asyncio.Event()
 
@@ -56,7 +61,7 @@ class WeatherRefreshTask:
 
         try:
             logger.info("開始天氣批次更新：%s。", reason)
-            await refresh_all_device_weather()
+            await refresh_all_device_weather(self._mqtt_client)
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -65,6 +70,7 @@ class WeatherRefreshTask:
     async def _run(self) -> None:
         """開機更新一次後持續等待每小時台北時間 :05。"""
 
+        await self._mqtt_client.wait_until_connected()
         await self._refresh_safely("後端啟動")
 
         while not self._stop_event.is_set():

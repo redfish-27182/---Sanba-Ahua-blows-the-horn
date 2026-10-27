@@ -99,7 +99,11 @@ class MqttClient:
                     self._connected_event.set()
 
                     async for message in client.messages:
-                        await route_message(str(message.topic), bytes(message.payload))
+                        await route_message(
+                            str(message.topic),
+                            bytes(message.payload),
+                            self,
+                        )
             
             except asyncio.CancelledError:
                 raise

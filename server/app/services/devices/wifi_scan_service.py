@@ -2,15 +2,14 @@
 
 from datetime import datetime, timezone
 import logging
+from typing import TYPE_CHECKING
 
 import httpx
 from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.config.settings import settings
-from app.database.repositories.device_location_repository import (
-    save_latest_device_location,
-)
+from app.database.repositories.device_location_repository import save_latest_device_location
 from app.services.weather_service import refresh_weather_for_device
 from app.schemas.device_location_schema import (
     DeviceLocationInput,
@@ -20,6 +19,9 @@ from app.schemas.device_location_schema import (
     GoogleGeolocationResponse,
 )
 from app.schemas.wifi_scan_schema import WifiAccessPointInput, WifiScanInput
+
+if TYPE_CHECKING:
+    from app.mqtt.client import MqttClient
 
 logger = logging.getLogger(__name__)
 
@@ -159,7 +161,11 @@ async def find_location_names(
 
 
 #--------- 主程式 ---------#
-async def handle_wifi_scan(device_id: str, payload: bytes) -> None:
+async def handle_wifi_scan(
+    device_id: str,
+    payload: bytes,
+    mqtt_client: "MqttClient",
+) -> None:
     """輸入 MQTT Wi-Fi 掃描 JSON，保存最新座標與英文行政區。"""
 
     # 1. 解析 JSON，若格式錯誤則略過。
@@ -219,6 +225,7 @@ async def handle_wifi_scan(device_id: str, payload: bytes) -> None:
 
     # 新位置已保存後，立刻取得此設備所在座標的最新天氣。
     await refresh_weather_for_device(
+        mqtt_client,
         device_id,
         location.latitude,
         location.longitude,
