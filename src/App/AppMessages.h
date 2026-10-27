@@ -7,10 +7,32 @@ constexpr size_t APP_TOPIC_LENGTH = 80; // MQTT 主題長度
 constexpr size_t APP_PAYLOAD_LENGTH = 128; // MQTT 訊息內容長度
 constexpr size_t APP_VERSION_LENGTH = 24;  // 版本號長度
 
-// MQTT Task 收到的原始訊息。
-struct MqttInboundEvent {
-    char topic[APP_TOPIC_LENGTH];
-    char payload[APP_PAYLOAD_LENGTH];
+// 後端推送且需要更新遊戲畫面的天氣狀態。
+struct WeatherState {
+    int16_t temperatureTenthsC; // 攝氏溫度乘以 10，例如 265 代表 26.5°C。
+    uint16_t conditionCode;     // WeatherAPI 天氣代碼。
+    uint8_t rainProbability;    // 降雨機率，範圍 0 到 100。
+    uint32_t observedAt;        // 後端提供的觀測 Unix 時間。
+};
+
+// 由 MqttTask 轉交給 UiTask 的已驗證事件類型。
+enum class UiEventType : uint8_t {
+    FIRMWARE_UPDATE,
+    WEATHER_UPDATED,
+};
+
+// 韌體更新事件所需的最小資料。
+struct FirmwareUpdate {
+    char version[APP_VERSION_LENGTH];
+};
+
+// 單一 UI Queue 的訊息容器；同時間只使用其中一種資料。
+struct UiEvent {
+    UiEventType type;
+    union {
+        FirmwareUpdate firmware;
+        WeatherState weather;
+    };
 };
 
 // 其他 Task 要求 MQTT Task 發送的訊息。
@@ -18,17 +40,4 @@ struct MqttPublishRequest {
     char topic[APP_TOPIC_LENGTH];     // 主題
     char payload[APP_PAYLOAD_LENGTH]; // 內容
     bool retained;                    // 是否保留訊息
-};
-
-// UiTask 回覆 UpdateManager：使用者選擇，以及 TFT 已讓給 OTA 使用的確認。
-enum class UiResponseType : uint8_t {
-    UPDATE_ACCEPTED, // 使用者同意更新
-    UPDATE_DECLINED, // 使用者拒絕更新
-    OTA_SCREEN_READY // UiTask 已經讓給 OTA 使用，並顯示版本號
-};
-
-// UiTask 回覆 UpdateManager：使用者選擇，以及 TFT 已讓給 OTA 使用的確認。
-struct UiResponse {
-    UiResponseType type;
-    char version[APP_VERSION_LENGTH];
 };

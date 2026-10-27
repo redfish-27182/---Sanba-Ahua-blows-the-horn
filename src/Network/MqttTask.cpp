@@ -6,6 +6,7 @@
 
 #include "App/AppMessages.h"
 #include "App/AppQueues.h"
+#include "Network/MqttEventRouter.h"
 #include "Network/MqttTlsClient.h"
 #include "Network/MqttTopics.h"
 #include "Network/WifiScanner.h"
@@ -24,39 +25,16 @@ constexpr uint32_t RECONNECT_DELAYS_MS[] = {5000, 10000, 30000, 60000};
 
 // MQTT callback 會在 mqttClient.loop() 被呼叫時觸發，並且在同一個 Task 內執行。
 void messageCallback(char *topic, byte *payload, unsigned int length) {
-    // PubSubClient 的 payload 不是以 \0 結尾，因此必須明確複製並補結尾。
-    // callback 在 MQTT Task 內被呼叫，只做無阻塞 Queue 轉送。
+    // callback 在 MQTT Task 內被呼叫，只做無阻塞的事件轉換與 Queue 轉送。
     if (topic == nullptr) {
         return;
     }
-
-    // 天氣目前只供序列埠驗證，不解析、不存入 RAM，也不轉送其他 Task。
-    if (strcmp(topic, weatherTopic) == 0) {
-        Serial.printf("[Weather] topic=%s\n", topic);
-        Serial.printf(
-            "[Weather] payload=%.*s\n",
-            static_cast<int>(length),
-            reinterpret_cast<const char *>(payload)
-        );
-        return;
-    }
-
-    if (mqttInboundQueue == nullptr) {
-        return;
-    }
-
-    MqttInboundEvent event{};
-    strncpy(event.topic, topic, sizeof(event.topic) - 1);
-    size_t copiedLength = static_cast<size_t>(length);
-    if (copiedLength >= sizeof(event.payload)) {
-        copiedLength = sizeof(event.payload) - 1;
-    }
-    memcpy(event.payload, payload, copiedLength);
-    event.payload[copiedLength] = '\0';
-
-    if (xQueueSend(mqttInboundQueue, &event, 0) != pdTRUE) {
-        Serial.println("MQTT inbound queue full; message dropped.");
-    }
+    MqttEventRouter_Route(
+        topic,
+        reinterpret_cast<const uint8_t *>(payload),
+        static_cast<size_t>(length),
+        weatherTopic
+    );
 }
 
 // 嘗試連線到 MQTT Broker，並訂閱必要的主題。

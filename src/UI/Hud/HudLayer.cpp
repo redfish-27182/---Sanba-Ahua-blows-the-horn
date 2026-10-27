@@ -1,6 +1,7 @@
 #include "UI/Hud/HudLayer.h"
 
 #include <algorithm>
+#include <cstdio>
 
 #include "Config.h"
 #include "Font/SystemText.h"
@@ -58,6 +59,57 @@ void drawRectToStrip(
     fillRectToStrip(pixels, screenY, stripHeight, x + width - 1, y, 1, height, color);
 }
 
+// 把約 2px 的像素圓角矩形裁切後填入目前條帶。
+// pixels：uint16_t*，條帶；screenY、stripHeight：int，條帶資訊；其餘為矩形資料。
+void fillRoundedRectToStrip(
+    uint16_t *pixels,
+    int screenY,
+    int stripHeight,
+    int x,
+    int y,
+    int width,
+    int height,
+    int radius,
+    uint16_t color
+) {
+    if (radius < 1 || width <= radius * 2 || height <= radius * 2) {
+        fillRectToStrip(pixels, screenY, stripHeight, x, y, width, height, color);
+        return;
+    }
+    fillRectToStrip(pixels, screenY, stripHeight, x + radius, y, width - radius * 2, 1, color);
+    fillRectToStrip(pixels, screenY, stripHeight, x + 1, y + 1, width - 2, 1, color);
+    fillRectToStrip(pixels, screenY, stripHeight, x, y + radius, width, height - radius * 2, color);
+    fillRectToStrip(pixels, screenY, stripHeight, x + 1, y + height - 2, width - 2, 1, color);
+    fillRectToStrip(pixels, screenY, stripHeight, x + radius, y + height - 1, width - radius * 2, 1, color);
+}
+
+// 把約 2px 的像素圓角外框裁切後寫入目前條帶。
+// pixels：uint16_t*，條帶；screenY、stripHeight：int，條帶資訊；其餘為矩形資料。
+void drawRoundedRectToStrip(
+    uint16_t *pixels,
+    int screenY,
+    int stripHeight,
+    int x,
+    int y,
+    int width,
+    int height,
+    int radius,
+    uint16_t color
+) {
+    if (radius < 1 || width <= radius * 2 || height <= radius * 2) {
+        drawRectToStrip(pixels, screenY, stripHeight, x, y, width, height, color);
+        return;
+    }
+    fillRectToStrip(pixels, screenY, stripHeight, x + radius, y, width - radius * 2, 1, color);
+    fillRectToStrip(pixels, screenY, stripHeight, x + 1, y + 1, 1, 1, color);
+    fillRectToStrip(pixels, screenY, stripHeight, x + width - 2, y + 1, 1, 1, color);
+    fillRectToStrip(pixels, screenY, stripHeight, x, y + radius, 1, height - radius * 2, color);
+    fillRectToStrip(pixels, screenY, stripHeight, x + width - 1, y + radius, 1, height - radius * 2, color);
+    fillRectToStrip(pixels, screenY, stripHeight, x + 1, y + height - 2, 1, 1, color);
+    fillRectToStrip(pixels, screenY, stripHeight, x + width - 2, y + height - 2, 1, 1, color);
+    fillRectToStrip(pixels, screenY, stripHeight, x + radius, y + height - 1, width - radius * 2, 1, color);
+}
+
 // 將系統文字寫入目前條帶。
 // pixels：uint16_t*，條帶；screenY、stripHeight：int，條帶資訊；其餘為文字資料。
 void drawTextToStrip(
@@ -85,6 +137,17 @@ void drawTextToStrip(
         height,
         color
     );
+}
+
+// 將 WeatherAPI 天氣代碼轉成第一版 HUD 使用的簡短中文。
+// conditionCode：uint16_t，WeatherAPI 天氣代碼；回傳：const char*，晴、陰或雨。
+const char *conditionLabel(uint16_t conditionCode) {
+    if (conditionCode == 1000) return "晴";
+    if (conditionCode == 1003 || conditionCode == 1006 || conditionCode == 1009
+        || conditionCode == 1030 || conditionCode == 1135 || conditionCode == 1147) {
+        return "陰";
+    }
+    return "雨";
 }
 }
 
@@ -146,6 +209,17 @@ bool HudLayer::handleInput(const InputEvent &event) {
     return true;
 }
 
+// 保存最新天氣，顯示文字有變化時要求遊戲重新合成畫面。
+// state：const WeatherState&，已驗證天氣狀態；回傳：bool，是否需要重繪。
+bool HudLayer::setWeather(const WeatherState &state) {
+    const bool changed = !hasWeather
+        || weather.temperatureTenthsC != state.temperatureTenthsC
+        || weather.conditionCode != state.conditionCode;
+    weather = state;
+    hasWeather = true;
+    return changed;
+}
+
 // 在每一條地圖條帶內合成 HUD，避免直接繪圖造成閃爍。
 // pixels：uint16_t*，RGB565 條帶；screenY、height：int，條帶的螢幕位置及高度。
 void HudLayer::composeStrip(uint16_t *pixels, int screenY, int height) const {
@@ -187,12 +261,33 @@ int HudLayer::menuItemAt(int x, int y) const {
 // 繪製左上角的暫定天氣資料到目前條帶。
 // pixels：uint16_t*，RGB565 條帶；screenY、height：int，條帶資訊。
 void HudLayer::drawWeatherPanel(uint16_t *pixels, int screenY, int height) const {
-    fillRectToStrip(pixels, screenY, height, MARGIN + 2, MARGIN + 2, WEATHER_WIDTH, WEATHER_HEIGHT, HUD_SHADOW);
-    fillRectToStrip(pixels, screenY, height, MARGIN, MARGIN, WEATHER_WIDTH, WEATHER_HEIGHT, HUD_PANEL);
-    drawRectToStrip(pixels, screenY, height, MARGIN, MARGIN, WEATHER_WIDTH, WEATHER_HEIGHT, HUD_BORDER);
-    drawTextToStrip(pixels, screenY, height, "天氣：--", "Weather: --", MARGIN + 8, MARGIN + 5, WEATHER_WIDTH - 16, 16, HUD_TEXT);
-    drawTextToStrip(pixels, screenY, height, "溫度：--°C", "Temp: --C", MARGIN + 8, MARGIN + 23, WEATHER_WIDTH - 16, 16, HUD_TEXT);
-    drawTextToStrip(pixels, screenY, height, "濕度：--%", "Humidity: --%", MARGIN + 8, MARGIN + 41, WEATHER_WIDTH - 16, 16, HUD_TEXT);
+    fillRoundedRectToStrip(
+        pixels, screenY, height, MARGIN + 2, MARGIN + 2,
+        WEATHER_WIDTH, WEATHER_HEIGHT, WEATHER_CORNER_RADIUS, HUD_SHADOW
+    );
+    fillRoundedRectToStrip(
+        pixels, screenY, height, MARGIN, MARGIN,
+        WEATHER_WIDTH, WEATHER_HEIGHT, WEATHER_CORNER_RADIUS, HUD_PANEL
+    );
+    drawRoundedRectToStrip(
+        pixels, screenY, height, MARGIN, MARGIN,
+        WEATHER_WIDTH, WEATHER_HEIGHT, WEATHER_CORNER_RADIUS, HUD_BORDER
+    );
+
+    char conditionText[20]{};
+    char temperatureText[24]{};
+    if (hasWeather) {
+        const int roundedTemperature = weather.temperatureTenthsC >= 0
+            ? (weather.temperatureTenthsC + 5) / 10
+            : (weather.temperatureTenthsC - 5) / 10;
+        snprintf(conditionText, sizeof(conditionText), "天氣：%s", conditionLabel(weather.conditionCode));
+        snprintf(temperatureText, sizeof(temperatureText), "溫度：%d°C", roundedTemperature);
+    } else {
+        snprintf(conditionText, sizeof(conditionText), "天氣：--");
+        snprintf(temperatureText, sizeof(temperatureText), "溫度：--°C");
+    }
+    drawTextToStrip(pixels, screenY, height, conditionText, "Weather: --", MARGIN + 8, MARGIN + 4, WEATHER_WIDTH - 16, 16, HUD_TEXT);
+    drawTextToStrip(pixels, screenY, height, temperatureText, "Temp: --C", MARGIN + 8, MARGIN + 22, WEATHER_WIDTH - 16, 16, HUD_TEXT);
 }
 
 // 繪製右上角的三橫線選單按鈕到目前條帶。

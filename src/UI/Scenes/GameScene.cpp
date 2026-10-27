@@ -50,6 +50,14 @@ void GameScene::handleInput(const InputEvent &event) {
     }
 }
 
+// 更新 HUD，顯示內容有變化時才要求重繪。
+// weather：const WeatherState&，目前天氣狀態。
+void GameScene::setWeather(const WeatherState &weather) {
+    if (hud.setWeather(weather)) {
+        dirty = true;
+    }
+}
+
 // 地圖或鏡頭改變後重畫整個可見區域。
 // 回傳：bool，是否成功。
 bool GameScene::drawIfNeeded() {

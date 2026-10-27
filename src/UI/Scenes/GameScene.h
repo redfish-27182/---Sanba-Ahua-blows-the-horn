@@ -17,6 +17,10 @@ public:
     // event：const InputEvent&，觸控事件。
     void handleInput(const InputEvent &event);
 
+    // 更新 HUD 使用的天氣狀態。
+    // weather：const WeatherState&，目前天氣狀態。
+    void setWeather(const WeatherState &weather);
+
     // 需要更新時繪製畫面。
     // 回傳：bool，繪製是否成功。
     bool drawIfNeeded();

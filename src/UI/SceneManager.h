@@ -16,6 +16,10 @@ public:
     // 將觸控事件交給遊戲畫面。
     void handleInput(const InputEvent &event);
 
+    // 將已驗證的天氣狀態交給遊戲 HUD。
+    // weather：const WeatherState&，目前天氣狀態。
+    void setWeather(const WeatherState &weather);
+
     // 更新需要重畫的畫面。
     void update();
 

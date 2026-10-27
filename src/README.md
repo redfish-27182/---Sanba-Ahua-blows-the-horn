@@ -9,7 +9,9 @@ TouchTask                               MQTT Task
     │                                       │
     │ 觸控事件                              ├── 收到 MQTT 訊息
     ▼                                       │       ▼
-inputQueue                                  │  mqttInboundQueue
+inputQueue                                  │  MqttEventRouter
+    │                                       │       │
+    │                                       │  uiEventQueue
     │                                       │       │
     └──────────────────────┬────────────────────────┘
                            ▼
@@ -49,6 +51,7 @@ inputQueue                                  │  mqttInboundQueue
 | `Map/MapLoader.cpp` | 從 SD 卡載入並檢查地圖和瓦片素材。 |
 | `Display/TileRenderer.cpp` | 根據鏡頭和地圖拼裝可見圖層，處理透明色與翻轉。 |
 | `Display/DisplayDriver.cpp` | 透過 TFT_eSPI 顯示狀態文字或像素區塊。 |
+| `Network/MqttEventRouter.cpp` | 驗證 MQTT topic／JSON，轉成固定大小的 UI 事件。 |
 | `UpdateManager/UpdateManager.cpp` | 判斷韌體版本、詢問使用者，並呼叫既有 OTA。 |
 | `UpdateManager/GitHubOTA.h` | 下載和寫入韌體，並直接繪製 OTA 進度。 |
 
@@ -79,7 +82,7 @@ inputQueue                                  │  mqttInboundQueue
 ## 韌體更新流程
 
 ```text
-MQTT Task → mqttInboundQueue → UiTask → UpdateManager
+MQTT Task → MqttEventRouter → uiEventQueue → UiTask → UpdateManager
                                              │
                                              ▼
                                        PromptDialog
@@ -107,7 +110,7 @@ MQTT Task → mqttInboundQueue → UiTask → UpdateManager
 | 佇列 | 用途 |
 | --- | --- |
 | `inputQueue` | `TouchTask` 傳送觸控事件；一般遊戲時由 `UiTask` 讀取，提示視窗開啟時由 `PromptDialog` 讀取。 |
-| `mqttInboundQueue` | MQTT Task 傳送收到的訊息，由 `UiTask` 交給更新邏輯。 |
+| `uiEventQueue` | MQTT Task 經 `MqttEventRouter` 傳送已驗證的 UI 事件，例如韌體更新與天氣更新。 |
 | `mqttPublishQueue` | 傳送發布請求給 MQTT Task。 |
 
 `UpdateManager` 不再是獨立 Task，因此目前不需要 `uiResponseQueue` 來交接使用者選擇或 OTA 螢幕使用權。

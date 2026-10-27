@@ -47,6 +47,14 @@ void SceneManager::handleInput(const InputEvent &event) {
     }
 }
 
+// 將天氣狀態交給目前遊戲畫面。
+// weather：const WeatherState&，目前天氣狀態。
+void SceneManager::setWeather(const WeatherState &weather) {
+    if (game) {
+        game->setWeather(weather);
+    }
+}
+
 // 畫面需要更新時同步繪製；失敗顯示錯誤。
 void SceneManager::update() {
     if (game && !game -> drawIfNeeded()) { 

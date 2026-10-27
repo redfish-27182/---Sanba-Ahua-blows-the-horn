@@ -1,5 +1,6 @@
 #pragma once
 
+#include "App/AppMessages.h"
 #include "Display/ScreenOverlay.h"
 #include "EventTypes.h"
 
@@ -9,6 +10,10 @@ public:
     // 依觸控事件開關選單或選取項目。
     // event：const InputEvent&，觸控事件；回傳：bool，是否由 HUD 攔截。
     bool handleInput(const InputEvent &event);
+
+    // 更新目前天氣；顯示資料變更時回傳 true。
+    // weather：const WeatherState&，已驗證天氣狀態；回傳：bool，是否需要重繪。
+    bool setWeather(const WeatherState &weather);
 
     // 在送往螢幕前合成天氣面板、選單按鈕與已展開的選單。
     // pixels：uint16_t*，RGB565 條帶；screenY、height：int，條帶的螢幕位置及高度。
@@ -26,8 +31,9 @@ private:
     };
 
     static constexpr int MARGIN = 8;
-    static constexpr int WEATHER_WIDTH = 136;
-    static constexpr int WEATHER_HEIGHT = 62;
+    static constexpr int WEATHER_WIDTH = 152;
+    static constexpr int WEATHER_HEIGHT = 44;
+    static constexpr int WEATHER_CORNER_RADIUS = 2;
     static constexpr int MENU_BUTTON_SIZE = 36;
     static constexpr int MENU_WIDTH = 112;
     static constexpr int MENU_ITEM_HEIGHT = 28;
@@ -35,8 +41,10 @@ private:
 
     bool menuOpen = false;
     bool redrawRequested = false;
+    bool hasWeather = false;
     int selectedItem = -1;
     TouchCapture capture = TouchCapture::NONE;
+    WeatherState weather{};
 
     // 判斷座標是否位於右上選單按鈕。
     // x、y：int，螢幕座標；回傳：bool，是否命中。

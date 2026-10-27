@@ -25,11 +25,19 @@ void uiTask(void *parameter) {
     InputEvent input{};
     while (inputQueue && xQueueReceive(inputQueue, &input, 0) == pdTRUE) {}
     for (;;) {
-        MqttInboundEvent event{};
-        if (xQueueReceive(mqttInboundQueue, &event, 0) == pdTRUE) {
-            if (UpdateManager_Handle(event, *context.tft, *context.dialog)) {
-                while (inputQueue && xQueueReceive(inputQueue, &input, 0) == pdTRUE) {}
-                scenes.redraw();
+        // 有界處理 UI 事件，避免單一來源的事件阻塞觸控。
+        for (int i = 0; uiEventQueue && i < 4; ++i) {
+            UiEvent event{};
+            if (xQueueReceive(uiEventQueue, &event, 0) != pdTRUE) {
+                break;
+            }
+            if (event.type == UiEventType::FIRMWARE_UPDATE) {
+                if (UpdateManager_Handle(event.firmware, *context.tft, *context.dialog)) {
+                    while (inputQueue && xQueueReceive(inputQueue, &input, 0) == pdTRUE) {}
+                    scenes.redraw();
+                }
+            } else if (event.type == UiEventType::WEATHER_UPDATED) {
+                scenes.setWeather(event.weather);
             }
         }
         // 有界處理事件，避免快速觸控造成畫面完全無法更新。
