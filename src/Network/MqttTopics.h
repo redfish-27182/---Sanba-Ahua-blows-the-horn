@@ -4,6 +4,10 @@
 constexpr char MQTT_FIRMWARE_VERSION_TOPIC[] =
     "ahou/commands/broadcast/firmware/version";
 
+// 後端發送給單一 ESP32 的目前天氣 retained 訊息。
+constexpr char MQTT_DEVICE_COMMAND_PREFIX[] = "ahou/commands/devices/";
+constexpr char MQTT_DEVICE_WEATHER_SUFFIX[] = "/weather/current";
+
 // ESP32 回傳事件時，一律放在自己的 device_id 節點下。
 constexpr char MQTT_DEVICE_STATUS_PREFIX[] = "ahou/events/devices/";
 constexpr char MQTT_DEVICE_STATUS_SUFFIX[] = "/status";

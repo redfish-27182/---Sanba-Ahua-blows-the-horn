@@ -15,6 +15,7 @@ namespace {
 
 MqttTlsClient mqttClient;
 EventGroupHandle_t mqttStartupEvents = nullptr;
+char weatherTopic[APP_TOPIC_LENGTH]{};
 constexpr EventBits_t MQTT_INITIAL_SETUP_FINISHED = BIT0;
 constexpr EventBits_t MQTT_BOOT_WIFI_SCAN_REQUESTED = BIT1;
 
@@ -25,7 +26,22 @@ constexpr uint32_t RECONNECT_DELAYS_MS[] = {5000, 10000, 30000, 60000};
 void messageCallback(char *topic, byte *payload, unsigned int length) {
     // PubSubClient 的 payload 不是以 \0 結尾，因此必須明確複製並補結尾。
     // callback 在 MQTT Task 內被呼叫，只做無阻塞 Queue 轉送。
-    if (mqttInboundQueue == nullptr || topic == nullptr) {
+    if (topic == nullptr) {
+        return;
+    }
+
+    // 天氣目前只供序列埠驗證，不解析、不存入 RAM，也不轉送其他 Task。
+    if (strcmp(topic, weatherTopic) == 0) {
+        Serial.printf("[Weather] topic=%s\n", topic);
+        Serial.printf(
+            "[Weather] payload=%.*s\n",
+            static_cast<int>(length),
+            reinterpret_cast<const char *>(payload)
+        );
+        return;
+    }
+
+    if (mqttInboundQueue == nullptr) {
         return;
     }
 
@@ -47,6 +63,8 @@ void messageCallback(char *topic, byte *payload, unsigned int length) {
 bool connectAndSubscribe(char *statusTopic, size_t statusTopicLength) {
     snprintf(statusTopic, statusTopicLength, "%s%s%s", MQTT_DEVICE_STATUS_PREFIX,
             MQTT_DEVICE_ID, MQTT_DEVICE_STATUS_SUFFIX);
+    snprintf(weatherTopic, sizeof(weatherTopic), "%s%s%s", MQTT_DEVICE_COMMAND_PREFIX,
+            MQTT_DEVICE_ID, MQTT_DEVICE_WEATHER_SUFFIX);
 
     // Last Will 為 retained offline：裝置異常斷線時 Broker 仍會替我們留下離線狀態。
     if (!mqttClient.connect(MQTT_DEVICE_ID, MQTT_USERNAME, MQTT_PASSWORD, statusTopic, "offline")) {
@@ -54,14 +72,22 @@ bool connectAndSubscribe(char *statusTopic, size_t statusTopicLength) {
         return false;
     }
 
+    // 訂閱裝置專屬韌體版本主題
     if (!mqttClient.subscribe(MQTT_FIRMWARE_VERSION_TOPIC, 1)) {
-        Serial.println("MQTT subscribe failed.");
+        Serial.println("MQTT 韌體版本訂閱失敗。");
+        mqttClient.disconnect();
+        return false;
+    }
+
+    // 訂閱裝置專屬的天氣主題
+    if (!mqttClient.subscribe(weatherTopic, 1)) {
+        Serial.println("MQTT 天氣訂閱失敗。");
         mqttClient.disconnect();
         return false;
     }
 
     mqttClient.publish(statusTopic, "online", true);
-    Serial.println("MQTT connected and subscribed.");
+    Serial.println("MQTT 連接成功，並訂閱必要主題。");
     return true;
 }
 
