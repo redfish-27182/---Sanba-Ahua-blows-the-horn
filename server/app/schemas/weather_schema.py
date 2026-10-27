@@ -22,6 +22,12 @@ class WeatherApiCurrent(BaseModel):
     condition: WeatherApiCondition
 
 
+class WeatherApiLocation(BaseModel):
+    """WeatherAPI 回傳的實際查詢位置與 IANA 時區。"""
+
+    tz_id: str = Field(min_length=1, max_length=100)
+
+
 class WeatherApiForecastDayValues(BaseModel):
     """WeatherAPI 回傳的當日預報資料。"""
 
@@ -43,6 +49,7 @@ class WeatherApiForecast(BaseModel):
 class WeatherApiResponse(BaseModel):
     """WeatherAPI forecast endpoint 的最小必要回應。"""
 
+    location: WeatherApiLocation
     current: WeatherApiCurrent
     forecast: WeatherApiForecast
 
@@ -73,3 +80,4 @@ class DeviceWeatherMqttPayload(BaseModel):
     f: float
     c: int
     p: int = Field(ge=0, le=100)
+    z: int = Field(ge=-720, le=840)

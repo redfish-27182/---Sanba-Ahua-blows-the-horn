@@ -33,7 +33,7 @@ EMQX Cloud 使用公開 CA 時，`MQTT_CA_CERT_PATH` 可保留空白，Python �
 ## 啟動後端
 
 ```powershell
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
+
 ```
 
 啟動後，後端會：
@@ -44,3 +44,4 @@ EMQX Cloud 使用公開 CA 時，`MQTT_CA_CERT_PATH` 可保留空白，Python �
 4. 收到 `ahou/events/devices/{device_id}/test/ping` 時，暫時只記錄測試 log。
 
 `ahou/commands/broadcast/firmware/version` 是 retained 的全域版本公告 topic。現在先提供程式內的發布函式；等網站 HTTP API 開始實作時，再由網站功能呼叫它。
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
