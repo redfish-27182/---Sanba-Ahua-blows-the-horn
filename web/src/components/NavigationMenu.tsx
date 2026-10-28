@@ -32,7 +32,7 @@ export default function NavigationMenu() {
 
     return (
         <header
-            className={`sticky top-0 z-50 border-b bg-[var(--page-background)] text-white transition-colors duration-200 ${
+            className={`navigation-font sticky top-0 z-50 border-b bg-[var(--page-background)] text-white transition-colors duration-200 ${
                 hasScrolled ? 'border-white/55' : 'border-transparent'
             }`}
         >
@@ -89,7 +89,7 @@ export default function NavigationMenu() {
                         key={to}
                         to={to}
                         className={({ isActive }) => `inline-flex items-center gap-1.5
-                                rounded-full px-5 py-2 text-xl font-black tracking-tight transition-colors
+                                rounded-full px-5 py-2 text-xl font-bold tracking-tight transition-colors
                                 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:text-xl ${
                             isActive ? 'bg-white/18 text-white' : 'text-white/90 hover:bg-white/12 hover:text-white'
                         }`}
@@ -102,7 +102,7 @@ export default function NavigationMenu() {
                 <NavLink
                     to="/login"
                     className={({ isActive }) => `inline-flex items-center gap-1.5 rounded-full bg-emerald-400 px-5 py-2
-                            text-sm font-black tracking-tight text-emerald-950 shadow-md
+                            text-sm font-bold tracking-tight text-emerald-950 shadow-md
                             transition-transform hover:-translate-y-px hover:bg-emerald-300
                             focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:text-xl ${
                         isActive ? 'ring-2 ring-white/90 ring-offset-2 ring-offset-transparent' : ''
