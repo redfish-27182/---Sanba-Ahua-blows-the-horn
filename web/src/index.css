@@ -15,6 +15,49 @@
     font-family: "Huninn", "Arial Rounded MT Bold", "Nunito", ui-rounded, sans-serif;
 }
 
+.navigation-search-reveal {
+    width: 10rem;
+    flex: 0 0 auto;
+    overflow: hidden;
+    transform-origin: right center;
+    animation: navigation-search-reveal 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.navigation-search-close {
+    pointer-events: none;
+    animation: navigation-search-close 350ms cubic-bezier(0.55, 0, 0.75, 0.25) both;
+}
+
+@keyframes navigation-search-reveal {
+    from {
+        width: 2.5rem;
+        opacity: 0;
+    }
+}
+
+@keyframes navigation-search-close {
+    to {
+        width: 2.5rem;
+        opacity: 0;
+    }
+}
+
+@media (min-width: 640px) {
+    .navigation-search-reveal {
+        width: 20rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .navigation-search-reveal {
+        animation: none;
+    }
+
+    .navigation-search-close {
+        animation: none;
+    }
+}
+
 body {
     margin: 0;
     min-width: 320px;

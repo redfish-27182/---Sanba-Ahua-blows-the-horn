@@ -8,10 +8,12 @@ const navigationItems = [
     { label: '關於', to: '/about', icon: Info },
 ] as const
 
+type SearchVisibility = 'closed' | 'open' | 'closing'
+
 /** The primary, horizontal site navigation. */
 export default function NavigationMenu() {
     const [hasScrolled, setHasScrolled] = useState(false)
-    const [isSearchOpen, setIsSearchOpen] = useState(false)
+    const [searchVisibility, setSearchVisibility] = useState<SearchVisibility>('closed')
     const searchInputRef = useRef<HTMLInputElement>(null)
 
     useEffect(() => {
@@ -22,12 +24,17 @@ export default function NavigationMenu() {
     }, [])
 
     function openSearch() {
-        setIsSearchOpen(true)
+        setSearchVisibility('open')
         window.setTimeout(() => searchInputRef.current?.focus(), 0)
     }
 
     function closeSearch() {
-        setIsSearchOpen(false)
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            setSearchVisibility('closed')
+            return
+        }
+
+        setSearchVisibility('closing')
     }
 
     return (
@@ -36,23 +43,30 @@ export default function NavigationMenu() {
                 hasScrolled ? 'border-white/55' : 'border-transparent'
             }`}
         >
-            <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-1 py-3 sm:px-3">
+            <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-1 py-3 sm:px-1">
                 <Link
                     to="/"
                     className="shrink-0 rounded-md px-1 py-1 font-black tracking-tight text-white 
-                            transition-opacity hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                            transition-opacity hover:opacity-85 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                 >
-                    <span className="text-2xl sm:text-3xl">三八阿花</span>
+                    <span className="text-3xl font-bold sm:text-4xl">三八阿花</span>
                     <span className="ml-1 text-sm text-white/75 sm:text-base">吹喇叭</span>
                 </Link>
 
                 <nav aria-label="主要導覽" className="ml-auto flex items-center gap-1 sm:gap-2">
             
-                {isSearchOpen ? (
+                {searchVisibility !== 'closed' ? (
                     <form
                         role="search"
                         onSubmit={(event) => event.preventDefault()}
-                        className="flex items-center rounded-full border border-white/80 bg-white/10 px-2 py-1"
+                        onAnimationEnd={(event) => {
+                            if (searchVisibility === 'closing' && event.animationName === 'navigation-search-close') {
+                                setSearchVisibility('closed')
+                            }
+                        }}
+                        className={`navigation-search-reveal flex items-center rounded-full border border-white/80 bg-white/10 px-2 py-1 ${
+                            searchVisibility === 'closing' ? 'navigation-search-close' : ''
+                        }`}
                     >
                         <Search size={18} aria-hidden="true" className="shrink-0" />
                         <input
@@ -60,7 +74,7 @@ export default function NavigationMenu() {
                             type="search"
                             aria-label="搜尋網站"
                             placeholder="搜尋"
-                            className="w-24 bg-transparent px-2 py-1 text-sm font-bold text-white outline-none placeholder:text-white/70 sm:w-44"
+                            className="w-24 bg-transparent px-2 py-1 text-sm font-bold text-white outline-none placeholder:text-white/70 sm:w-60"
                         />
                         <button
                             type="button"

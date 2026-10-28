@@ -5,6 +5,7 @@ import NavigationMenu from '../components/NavigationMenu'
 const pageBackgrounds: Record<string, string> = {
     '/': '#7c878e',
     '/games': '#697b83',
+    '/guide': '#78868d',
     '/faq': '#78868d',
     '/about': '#807a85',
     '/login': '#6f8279',
