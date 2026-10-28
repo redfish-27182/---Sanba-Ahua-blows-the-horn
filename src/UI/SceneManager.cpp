@@ -42,25 +42,32 @@ bool SceneManager::startGame() {
 // 將觸控事件交給遊戲畫面。
 // event：const InputEvent&，觸控事件；
 void SceneManager::handleInput(const InputEvent &event) { 
-    if (game) {
-        game->handleInput(event); 
+    if (!game) return;
+
+    // HUD 優先攔截觸控，避免操作固定介面時拖曳地圖。
+    if (hud.handleInput(event)) {
+        if (hud.takeRedrawRequest()) {
+            game->requestRedraw();
+        }
+        return;
     }
+    game->handleInput(event);
 }
 
 // 將天氣狀態交給目前遊戲畫面。
 // weather：const WeatherState&，目前天氣狀態。
 void SceneManager::setWeather(const WeatherState &weather) {
-    if (game) {
-        game->setWeather(weather);
+    if (hud.setWeather(weather) && game) {
+        game->requestRedraw();
     }
 }
 
 // 畫面需要更新時同步繪製；失敗顯示錯誤。
 void SceneManager::update() {
-    if (game) {
-        game->update();
+    if (hud.update(millis()) && game) {
+        game->requestRedraw();
     }
-    if (game && !game->drawIfNeeded()) {
+    if (game && !game->drawIfNeeded(hud)) {
         game.reset();
         failureMessage = SystemText_Choose("記憶體不足，無法顯示畫面。", "Not enough memory to render.");
         loading.show(display, failureMessage);

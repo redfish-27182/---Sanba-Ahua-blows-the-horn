@@ -1,5 +1,6 @@
 #pragma once
 #include "Map/MapLoader.h"
+#include "UI/HudComposer.h"
 #include "UI/Scenes/GameScene.h"
 #include "UI/Scenes/LoadingScene.h"
 #include <memory>
@@ -31,6 +32,7 @@ private:
     LoadingScene loading;
     MapLoader loader;
     MapData map;
+    HudComposer hud;
     std::unique_ptr<GameScene> game;
     const char *failureMessage = nullptr; // 記錄載入或繪製失敗的訊息，供重畫時顯示。
 };

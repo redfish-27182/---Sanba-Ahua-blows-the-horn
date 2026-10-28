@@ -23,11 +23,12 @@ inputQueue                                  │  MqttEventRouter
 │  ├── SceneManager                                            │
 │  │     ├── LoadingScene → DisplayDriver → TFT_eSPI           │
 │  │     ├── MapLoader → SD 卡 → MapData（SRAM）                │
+│  │     ├── HudComposer                                       │
+│  │     │     ├── WeatherHud                                  │
+│  │     │     └── MenuHud                                     │
 │  │     └── GameScene                                         │
 │  │           ├── Camera：鏡頭原點與移動範圍                  │
-│  │           └── TileRenderer                                │
-│  │                 ├── 讀取 MapData 和 Camera                │
-│  │                 └── DisplayDriver → TFT_eSPI              │
+│  │           └── TileRenderer → HudComposer → DisplayDriver  │
 │  │                                                           │
 │  └── UpdateManager                                           │
 │        ├── PromptDialog → TFT_eSPI                           │
@@ -42,10 +43,14 @@ inputQueue                                  │  MqttEventRouter
 | 檔案 | 職責 |
 | --- | --- |
 | `UI/UiTask.cpp` | 接收佇列事件，呼叫畫面管理與更新流程。 |
-| `UI/SceneManager.cpp` | 顯示載入畫面、呼叫地圖載入器、管理遊戲畫面及重畫。 |
+| `UI/SceneManager.cpp` | 顯示載入畫面、呼叫地圖載入器；管理 GameScene、HudComposer 與輸入分流。 |
 | `UI/Scenes/LoadingScene.h` | 顯示載入中或錯誤訊息。 |
-| `UI/Scenes/GameScene.cpp` | 接收觸控事件，更新鏡頭；每秒檢查 HUD 當地時間並在跨分鐘時安排重繪。 |
-| `UI/Hud/HudLayer.cpp` | 將天氣與選單合成到地圖像素列；用 UTC 時鐘和後端時區偏移顯示當地時間。 |
+| `UI/Scenes/GameScene.cpp` | 接收未被 HUD 攔截的觸控事件、更新鏡頭並重繪地圖。 |
+| `UI/HudComposer.cpp` | 組裝 HUD 元件、決定繪製層級，並依最上層優先分流觸控。 |
+| `UI/Hud/HudComponent.h` | 未來 HUD 元件共用的合成、輸入與低頻更新介面。 |
+| `UI/Hud/HudCanvas.cpp` | 封裝 RGB565 條帶內的框線、圓角與系統文字繪製。 |
+| `UI/Hud/WeatherHud.cpp` | 保存天氣、換算 UTC 當地時間並繪製左上天氣面板。 |
+| `UI/Hud/MenuHud.cpp` | 繪製右上選單並處理下拉選單的互動。 |
 | `UI/PromptDialog.cpp` | 繪製提示視窗，直接從 `inputQueue` 等待使用者回答。 |
 | `Game/Camera.cpp` | 管理鏡頭原點，根據拖曳位移移動並限制邊界。 |
 | `Map/MapData.h` | 定義 SRAM 中的地圖、瓦片索引與像素資料。 |
@@ -72,10 +77,14 @@ inputQueue                                  │  MqttEventRouter
                     建立 GameScene                  顯示錯誤
                          │
                          ▼
-           TouchTask → inputQueue → UiTask → GameScene
+           TouchTask → inputQueue → UiTask → SceneManager
                                                  │
-                                                 ▼
-                                 Camera → TileRenderer → 螢幕
+                           ┌─────────────────────┴────────────────────┐
+                           ▼                                          ▼
+                    HudComposer 攔截？                           GameScene
+                           │                                          │
+                           ▼                                          ▼
+                     HUD 元件處理                    Camera → TileRenderer → 螢幕
 ```
 
 `DRAG` 事件提供目前座標及按下時的起點；`GameScene` 計算相鄰事件的位移，再更新 `Camera`。鏡頭初始原點為 `(0, 0)`，以像素為單位。畫面需要更新時，渲染器使用小型緩衝區同步繪製可見區域；遊戲渲染期間不讀取 SD 卡。
@@ -122,7 +131,7 @@ MQTT Task → MqttEventRouter → uiEventQueue → UiTask → UpdateManager
 NTP（MqttTask）→ 全域系統時鐘維持 UTC
 WeatherAPI → 後端依設備座標取得 IANA 時區 → UTC 偏移分鐘 z
 MQTT retained JSON（t、c、p、at、z）→ MqttEventRouter → uiEventQueue
-UiTask → GameScene → HudLayer：UTC + z → 15:01 雨 / 24°C
+UiTask → SceneManager → HudComposer → WeatherHud：UTC + z → 15:01 雨 / 24°C
 ```
 
 ESP32 不設定固定的全域時區，因此不同國家設備都能依各自的 `z` 顯示時間。HUD 每秒檢查一次，但只有跨分鐘或天氣資料改變才重繪。

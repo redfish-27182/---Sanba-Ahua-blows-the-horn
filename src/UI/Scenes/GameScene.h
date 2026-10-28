@@ -1,7 +1,7 @@
 #pragma once
+#include "Display/ScreenOverlay.h"
 #include "Display/TileRenderer.h"
 #include "EventTypes.h"
-#include "UI/Hud/HudLayer.h"
 
 class GameScene {
 public:
@@ -17,17 +17,9 @@ public:
     // event：const InputEvent&，觸控事件。
     void handleInput(const InputEvent &event);
 
-    // 更新 HUD 使用的天氣狀態。
-    // weather：const WeatherState&，目前天氣狀態。
-    void setWeather(const WeatherState &weather);
-
-    // 檢查 HUD 中需要隨時間更新的內容。
-    // 無輸入；每秒檢查一次本機 UTC 時鐘，跨分鐘時要求重繪。
-    void update();
-
     // 需要更新時繪製畫面。
-    // 回傳：bool，繪製是否成功。
-    bool drawIfNeeded();
+    // overlay：const ScreenOverlay&，由 SceneManager 組裝的固定圖層；回傳：bool，繪製是否成功。
+    bool drawIfNeeded(const ScreenOverlay &overlay);
 
     // 要求下次重新繪製，避免對話框殘留。
     void requestRedraw() { dirty = true; dragging = false; }
@@ -37,7 +29,6 @@ private:
     DisplayDriver &display;
     Camera camera;
     TileRenderer renderer;
-    HudLayer hud;
     bool dirty    = true;     // 是否需要重畫
     bool dragging = false;    // 是否正在拖曳
     int lastX = 0, lastY = 0; // 上次觸控座標
