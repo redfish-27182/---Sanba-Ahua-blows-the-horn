@@ -12,8 +12,11 @@ function AppRouter() {
         <Routes>
             <Route element={<PublicLayout />}>
                 <Route index element={<HomePage />} />
+                <Route path="games" element={<HomePage eyebrow="GAMES" title="遊戲" description="遊戲內容準備中。" />} />
                 <Route path="faq" element={<Navigate to="/faq/getting-started" replace />} />
                 <Route path="faq/:articleSlug" element={<FaqPage />} />
+                <Route path="about" element={<HomePage eyebrow="ABOUT" title="關於" description="認識三八阿花吹喇叭。" />} />
+                <Route path="login" element={<HomePage eyebrow="SIGN IN" title="登入" description="登入功能準備中。" />} />
                 {import.meta.env.DEV && <Route path="editor" element={<ArticleEditorPage />} />}
                 <Route path="*" element={<NotFoundPage />} />
             </Route>

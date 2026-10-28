@@ -2,7 +2,7 @@
 
 /* 全站基礎樣式：元件細節仍以 Tailwind utility class 為主。 */
 :root {
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+    font-family: "Arial Rounded MT Bold", "Nunito", ui-rounded, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
     color: #1c1c1e;
     background: #f2f2f7;
     font-synthesis: none;

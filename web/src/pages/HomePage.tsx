@@ -1,10 +1,22 @@
-function HomePage() {
+type HomePageProps = {
+    eyebrow?: string
+    title?: string
+    description?: string
+}
+
+function HomePage({
+    eyebrow,
+    title = '三八阿花吹喇叭',
+    description = '歡迎來到三八阿花。',
+}: HomePageProps) {
     return (
-        <div className="grid min-h-svh bg-white place-items-center px-4">
-            <h1 className="text-center text-16xl font-bold sm:text-5xl">
-                網站施工中
-            </h1>
-        </div>
+        <section className="grid min-h-[calc(100svh-4.75rem)] place-items-center px-4 text-white">
+            <div className="max-w-xl text-center">
+                {eyebrow && <p className="mb-3 text-sm font-black tracking-[0.25em] text-white/70">{eyebrow}</p>}
+                <h1 className="text-4xl font-black tracking-tight sm:text-6xl">{title}</h1>
+                <p className="mt-5 text-base font-bold text-white/80 sm:text-lg">{description}</p>
+            </div>
+        </section>
     )
 }
 

@@ -1,13 +1,32 @@
-import { Outlet } from 'react-router'
-import SiteHeader from '../components/SiteHeader'
+import type { CSSProperties } from 'react'
+import { Outlet, useLocation } from 'react-router'
+import NavigationMenu from '../components/NavigationMenu'
 
-// 公開網站頁面共用導覽列，Outlet 放入目前路由的內容。
+const pageBackgrounds: Record<string, string> = {
+    '/': '#7c878e',
+    '/games': '#697b83',
+    '/faq': '#78868d',
+    '/about': '#807a85',
+    '/login': '#6f8279',
+}
+
+function getPageBackground(pathname: string) {
+    const matchingPath = Object.keys(pageBackgrounds)
+        .filter((path) => path === '/' || pathname === path || pathname.startsWith(`${path}/`))
+        .sort((a, b) => b.length - a.length)[0]
+
+    return pageBackgrounds[matchingPath ?? '/']
+}
+
 function PublicLayout() {
+    const { pathname } = useLocation()
+    const pageStyle = { '--page-background': getPageBackground(pathname) } as CSSProperties
+
     return (
-        <div>
-            <SiteHeader />
+        <div style={pageStyle} className="min-h-svh bg-[var(--page-background)] transition-colors duration-300">
+            <NavigationMenu />
             <main>
-                <Outlet /> 
+                <Outlet />
             </main>
         </div>
     )
