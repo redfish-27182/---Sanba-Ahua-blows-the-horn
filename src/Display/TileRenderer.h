@@ -1,6 +1,7 @@
 #pragma once
 #include "Display/DisplayDriver.h"
 #include "Display/ScreenOverlay.h"
+#include "Display/TileColorCache.h"
 #include "Config.h"
 #include "Game/Camera.h"
 #include "Map/MapData.h"
@@ -24,6 +25,7 @@ public:
 
 private:
     std::unique_ptr<uint16_t[]> nextStrip;
+    TileColorCache tileColorCache;
     int lastCameraX = 0;
     int lastCameraY = 0;
     bool hasLastCameraPosition = false;

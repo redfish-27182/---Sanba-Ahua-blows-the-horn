@@ -1,5 +1,6 @@
 #include "Display/TileRenderer.h"
 #include <algorithm>
+#include <cstring>
 #include <new>
 
 // 配置四行 RGB565 緩衝區，保留到渲染器結束。
@@ -17,6 +18,10 @@ bool TileRenderer::initialize() {
         Serial.println("[TileRenderer] double strip allocation failed");
         return false;
     }
+
+    // 快取配置失敗時仍保留原始渲染路徑，避免因最佳化而無法進入遊戲。
+    // 輸入：24，最多保存 24 張 16×16 RGB565 瓦片。
+    tileColorCache.initialize(24);
 
     return true;
 }
@@ -40,10 +45,6 @@ bool TileRenderer::draw(
     const bool drawBottomFirst = hasLastCameraPosition &&
         absoluteDeltaY > absoluteDeltaX && cameraDeltaY > 0;
     const int stripCount = (SCREEN_HEIGHT + stripHeight - 1) / stripHeight;
-    uint32_t composeTimeUs = 0;
-    uint32_t transferTimeUs = 0;
-    const uint32_t frameStartedAt = micros();
-
     display.beginFrame();
     for (int stripIndex = 0; stripIndex < stripCount; ++stripIndex) {
         uint16_t *activeStrip = (stripIndex & 1) ? nextStrip.get() : strip.get();
@@ -51,7 +52,6 @@ bool TileRenderer::draw(
             ? std::max(0, SCREEN_HEIGHT - (stripIndex + 1) * stripHeight)
             : stripIndex * stripHeight;
         const int currentHeight = std::min(stripHeight, SCREEN_HEIGHT - sy);
-        const uint32_t composeStartedAt = micros();
         // 先清空緩衝區
         std::fill_n(activeStrip, stripWidth * stripHeight, uint16_t(0));
         
@@ -71,9 +71,58 @@ bool TileRenderer::draw(
                     const size_t pos = (size_t(layer) * map.height + wy / 16) * map.width + wx / 16;
                     const uint16_t cell = map.cells[pos], code = cell & 0x1fff;
                     if (code) {
-                        auto found = std::lower_bound(map.tileIds.begin(), map.tileIds.end(), uint16_t(code - 1));
-                        if (found != map.tileIds.end() && *found == code - 1) {
-                            const size_t tileIndex = size_t(found - map.tileIds.begin());
+                        const uint16_t tileIndexValue = map.tileIndexByCode[code - 1];
+                        if (tileIndexValue != MapData::invalidTileIndex) {
+                            const size_t tileIndex = tileIndexValue;
+
+                            TileColorCache::Tile cachedTile{};
+                            if (tileColorCache.get(map, tileIndex, cachedTile)) {
+                                const int tileX = wx % 16;
+                                const int tileY = wy % 16;
+                                const uint16_t transformFlags = cell & 0xe000;
+
+                                // 未翻轉且不透明的瓦片可直接複製 RGB565 像素。
+                                // 輸入：cachedTile、activeStrip、目前瓦片區塊座標。
+                                if (transformFlags == 0) {
+                                    for (int dy = 0; dy < blockHeight; ++dy) {
+                                        const uint16_t *source = cachedTile.pixels
+                                            + (tileY + dy) * 16 + tileX;
+                                        uint16_t *target = activeStrip
+                                            + (py + dy) * stripWidth + px;
+                                        if (cachedTile.isOpaque) {
+                                            memcpy(target, source, blockWidth * sizeof(uint16_t));
+                                        } else {
+                                            for (int dx = 0; dx < blockWidth; ++dx) {
+                                                const uint16_t color = source[dx];
+                                                if (color != 0xf81f) target[dx] = color;
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    // 有翻轉旗標時仍使用通用座標轉換，但省略 palette 查詢。
+                                    // 輸入：cell 翻轉旗標、cachedTile RGB565 像素、目前瓦片區塊座標。
+                                    for (int dy = 0; dy < blockHeight; ++dy) {
+                                        for (int dx = 0; dx < blockWidth; ++dx) {
+                                            int sourceX = tileX + dx;
+                                            int sourceY = tileY + dy;
+                                            if (cell & 0x2000) sourceX = 15 - sourceX;
+                                            if (cell & 0x4000) sourceY = 15 - sourceY;
+                                            if (cell & 0x8000) {
+                                                const int temporary = sourceX;
+                                                sourceX = sourceY;
+                                                sourceY = temporary;
+                                            }
+                                            const uint16_t color = cachedTile.pixels[sourceY * 16 + sourceX];
+                                            if (color != 0xf81f) {
+                                                activeStrip[(py + dy) * stripWidth + px + dx] = color;
+                                            }
+                                        }
+                                    }
+                                }
+                                px += blockWidth;
+                                continue;
+                            }
+
                             const size_t chunkIndex = tileIndex / TILES_PER_PIXEL_CHUNK;
                             const size_t tileInChunk = tileIndex % TILES_PER_PIXEL_CHUNK;
                             if (chunkIndex >= map.pixelChunks.size() || !map.pixelChunks[chunkIndex]) {
@@ -110,17 +159,12 @@ bool TileRenderer::draw(
         // 在同一個條帶依序疊加 HUD 等固定介面，再一次送往 TFT。
         // pixels：uint16_t*，目前條帶；sy、currentHeight：int，條帶螢幕位置與高度。
         overlay.composeStrip(activeStrip, sy, currentHeight);
-        composeTimeUs += micros() - composeStartedAt;
-
-        const uint32_t transferStartedAt = micros();
         display.drawStrip(sy, currentHeight, activeStrip);
-        transferTimeUs += micros() - transferStartedAt;
         yield();
     }
-    const uint32_t finalTransferStartedAt = micros();
     display.endFrame();
-    transferTimeUs += micros() - finalTransferStartedAt;
 
+#if 0 // 已停用的效能統計：保留原始碼供日後除錯時參考。
     // 每 20 幀列印一次平均值，避免 Serial 輸出干擾平常的拖曳流暢度。
     // 輸入：本幀的合成、傳輸與總耗時，單位為微秒。
     static uint32_t measuredFrameCount = 0;
@@ -131,6 +175,21 @@ bool TileRenderer::draw(
     accumulatedComposeUs += composeTimeUs;
     accumulatedTransferUs += transferTimeUs;
     accumulatedFrameUs += micros() - frameStartedAt;
+    const TileColorCache::Statistics cacheStatistics = tileColorCache.takeStatistics();
+    static uint32_t accumulatedCacheHits = 0;
+    static uint32_t accumulatedCacheMisses = 0;
+    static uint32_t accumulatedCacheBypasses = 0;
+    static uint32_t accumulatedOpaqueCopyBlocks = 0;
+    static uint32_t accumulatedTransparentCopyBlocks = 0;
+    static uint32_t accumulatedTransformedBlocks = 0;
+    static uint32_t accumulatedFallbackBlocks = 0;
+    accumulatedCacheHits += cacheStatistics.hits;
+    accumulatedCacheMisses += cacheStatistics.misses;
+    accumulatedCacheBypasses += cacheStatistics.bypasses;
+    accumulatedOpaqueCopyBlocks += opaqueCopyBlocks;
+    accumulatedTransparentCopyBlocks += transparentCopyBlocks;
+    accumulatedTransformedBlocks += transformedBlocks;
+    accumulatedFallbackBlocks += fallbackBlocks;
     if (measuredFrameCount >= 20) {
         const uint32_t averageComposeUs = accumulatedComposeUs / measuredFrameCount;
         const uint32_t averageTransferUs = accumulatedTransferUs / measuredFrameCount;
@@ -141,11 +200,31 @@ bool TileRenderer::draw(
             averageTransferUs / 1000, averageTransferUs % 1000,
             averageFrameUs / 1000, averageFrameUs % 1000
         );
+        Serial.printf(
+            "[TileRenderer] cache hit=%lu miss=%lu bypass=%lu | "
+            "opaque=%lu transparent=%lu transformed=%lu fallback=%lu\n",
+            accumulatedCacheHits,
+            accumulatedCacheMisses,
+            accumulatedCacheBypasses,
+            accumulatedOpaqueCopyBlocks,
+            accumulatedTransparentCopyBlocks,
+            accumulatedTransformedBlocks,
+            accumulatedFallbackBlocks
+        );
         measuredFrameCount = 0;
         accumulatedComposeUs = 0;
         accumulatedTransferUs = 0;
         accumulatedFrameUs = 0;
+        accumulatedCacheHits = 0;
+        accumulatedCacheMisses = 0;
+        accumulatedCacheBypasses = 0;
+        accumulatedOpaqueCopyBlocks = 0;
+        accumulatedTransparentCopyBlocks = 0;
+        accumulatedTransformedBlocks = 0;
+        accumulatedFallbackBlocks = 0;
     }
+
+#endif
 
     lastCameraX = camera.x;
     lastCameraY = camera.y;

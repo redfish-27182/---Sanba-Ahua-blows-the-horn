@@ -2,6 +2,7 @@
 #include "Config.h"
 
 #include <SD.h>
+#include <algorithm>
 #include <cstdlib>
 #include <cstring> 
 #include <new>
@@ -92,6 +93,21 @@ bool MapLoader::load(const char *mapPath, const char *tilesetPath, MapData &outp
     }
     data.tileIds.resize(count);
 
+    // 配置瓦片編號對照表，索引 0 對應地圖中的編號 1。
+    // 輸入：無。
+    // 輸出：tileIndexByCode，失敗時結束載入。
+    const size_t tileIndexBytes = MapData::tileCodeCount * sizeof(uint16_t);
+    if (tileIndexBytes > ESP.getMaxAllocHeap()) {
+        Serial.println("MapLoader: tile lookup allocation is unavailable");
+        return false;
+    }
+    data.tileIndexByCode.reset(new (std::nothrow) uint16_t[MapData::tileCodeCount]);
+    if (!data.tileIndexByCode) {
+        Serial.println("MapLoader: tile lookup allocation failed");
+        return false;
+    }
+    std::fill_n(data.tileIndexByCode.get(), MapData::tileCodeCount, MapData::invalidTileIndex);
+
     data.palette.resize(TILE_PALETTE_COLOR_COUNT);
 
     data.pixelChunks.reserve(chunkCount);
@@ -111,6 +127,7 @@ bool MapLoader::load(const char *mapPath, const char *tilesetPath, MapData &outp
         }
         data.tileIds[i] = read16(pair);
         if (data.tileIds[i] >= 8191 || (i && data.tileIds[i] <= data.tileIds[i - 1])) return false;
+        data.tileIndexByCode[data.tileIds[i]] = static_cast<uint16_t>(i);
     }
     for (size_t i = 0; i < data.palette.size(); ++i) {
         if (tiles.read(pair, 2) != 2) {
@@ -138,9 +155,10 @@ bool MapLoader::load(const char *mapPath, const char *tilesetPath, MapData &outp
     for (uint16_t cell : data.cells) {
         const uint16_t code = cell & 0x1fff;
         if (!code) { if (cell) return false; continue; }
-        bool found = false;
-        for (uint16_t id : data.tileIds) if (id == code - 1) { found = true; break; }
-        if (!found) { Serial.println("MapLoader: missing tile"); return false; }
+        if (data.tileIndexByCode[code - 1] == MapData::invalidTileIndex) {
+            Serial.println("MapLoader: missing tile");
+            return false;
+        }
     }
     output = std::move(data);
     Serial.printf("MapLoader: %u x %u, %u layers, %u tiles loaded\n", output.width, output.height, output.layers, count);
