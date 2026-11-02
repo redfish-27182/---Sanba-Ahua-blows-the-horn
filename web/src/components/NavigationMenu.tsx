@@ -39,18 +39,18 @@ export default function NavigationMenu() {
 
     return (
         <header
-            className={`navigation-font sticky top-0 z-50 border-b bg-[var(--page-background)] text-white transition-colors duration-200 ${
+            className={`navigation-font sticky top-0 z-50 border-b bg-[var(--page-background)] text-[var(--page-foreground)] transition-colors duration-200 ${
                 hasScrolled ? 'border-white/55' : 'border-transparent'
             }`}
         >
-            <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-1 py-3 sm:px-1">
+            <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-1 py-3 sm:px-3">
                 <Link
                     to="/"
-                    className="shrink-0 rounded-md px-1 py-1 font-black tracking-tight text-white 
-                            transition-opacity hover:opacity-85 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                    className="shrink-0 rounded-md px-1 py-1 font-black tracking-tight
+                            transition-opacity hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                 >
-                    <span className="text-3xl font-bold sm:text-4xl">三八阿花</span>
-                    <span className="ml-1 text-sm text-white/75 sm:text-base">吹喇叭</span>
+                    <span className="text-3xl text-white font-bold sm:text-3xl">三八阿花</span>
+                    <span className="ml-1 text-sm text-white/75 sm:text-base">官方網站</span>
                 </Link>
 
                 <nav aria-label="主要導覽" className="ml-auto flex items-center gap-1 sm:gap-2">
@@ -105,7 +105,7 @@ export default function NavigationMenu() {
                         className={({ isActive }) => `inline-flex items-center gap-1.5
                                 rounded-full px-5 py-2 text-xl font-bold tracking-tight transition-colors
                                 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:text-xl ${
-                            isActive ? 'bg-white/18 text-white' : 'text-white/90 hover:bg-white/12 hover:text-white'
+                            isActive ? 'bg-white/18 text-[var(--page-foreground)]' : 'navigation-muted hover:bg-white/12 hover:text-[var(--page-foreground)]'
                         }`}
                     >
                         <Icon size={25} strokeWidth={2.8} aria-hidden="true" />
