@@ -1,5 +1,7 @@
 #include "UI/SceneManager.h"
 #include <new>
+#include <SD.h>
+#include <SPI.h>
 #include "Font/SystemText.h"
 #include "Network/MqttTask.h"
 
@@ -33,6 +35,14 @@ bool SceneManager::startGame() {
         return false;
     }
     // 地圖最大像素區塊已配置完成，此時才允許 Wi-Fi 掃描配置暫時記憶體。
+    // 地圖與字庫均已載入 SRAM；卸載 SD 後讓 TFT DMA 獨占共用的 VSPI。
+    // 輸入：無。
+    SD.end();
+    SPI.end();
+    if (!display.enableDma()) {
+        Serial.println("[SceneManager] TFT DMA 未啟用，改用同步顯示");
+    }
+
     MqttTask_RequestBootWifiScan();
     // 建立完成，清除錯誤訊息。
     failureMessage = nullptr;

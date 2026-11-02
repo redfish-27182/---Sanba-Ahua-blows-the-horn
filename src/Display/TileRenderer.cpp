@@ -6,12 +6,15 @@
 // 無輸入；回傳：bool，是否成功配置。
 bool TileRenderer::initialize() {
     // 若已配置則直接回傳成功。
-    if (strip) return true;
+    if (strip && nextStrip) return true;
     
     strip.reset(new (std::nothrow) uint16_t[stripWidth * stripHeight]);
+    nextStrip.reset(new (std::nothrow) uint16_t[stripWidth * stripHeight]);
     
-    if (!strip) {
-        Serial.println("[TileRenderer] strip allocation failed");
+    if (!strip || !nextStrip) {
+        strip.reset();
+        nextStrip.reset();
+        Serial.println("[TileRenderer] double strip allocation failed");
         return false;
     }
 
@@ -25,7 +28,7 @@ bool TileRenderer::draw(
     const ScreenOverlay &overlay,
     DisplayDriver &display
 ) {
-    if (!strip) {
+    if (!strip || !nextStrip) {
         Serial.println("[TileRenderer] 還沒初始化ˇ");
         return false;
     }
@@ -37,15 +40,20 @@ bool TileRenderer::draw(
     const bool drawBottomFirst = hasLastCameraPosition &&
         absoluteDeltaY > absoluteDeltaX && cameraDeltaY > 0;
     const int stripCount = (SCREEN_HEIGHT + stripHeight - 1) / stripHeight;
+    uint32_t composeTimeUs = 0;
+    uint32_t transferTimeUs = 0;
+    const uint32_t frameStartedAt = micros();
 
     display.beginFrame();
     for (int stripIndex = 0; stripIndex < stripCount; ++stripIndex) {
+        uint16_t *activeStrip = (stripIndex & 1) ? nextStrip.get() : strip.get();
         const int sy = drawBottomFirst
             ? std::max(0, SCREEN_HEIGHT - (stripIndex + 1) * stripHeight)
             : stripIndex * stripHeight;
         const int currentHeight = std::min(stripHeight, SCREEN_HEIGHT - sy);
+        const uint32_t composeStartedAt = micros();
         // 先清空緩衝區
-        std::fill_n(strip.get(), stripWidth * stripHeight, uint16_t(0));
+        std::fill_n(activeStrip, stripWidth * stripHeight, uint16_t(0));
         
         // 依圖層順序合成可見像素
         for (unsigned layer = 0; layer < map.layers; ++layer) {
@@ -89,7 +97,7 @@ bool TileRenderer::draw(
                                         return false;
                                     }
                                     const uint16_t color = map.palette[paletteIndex];
-                                    if (color != 0xf81f) strip[(py + dy) * stripWidth + px + dx] = color;
+                                    if (color != 0xf81f) activeStrip[(py + dy) * stripWidth + px + dx] = color;
                                 }
                             }
                         }
@@ -101,11 +109,44 @@ bool TileRenderer::draw(
         }
         // 在同一個條帶依序疊加 HUD 等固定介面，再一次送往 TFT。
         // pixels：uint16_t*，目前條帶；sy、currentHeight：int，條帶螢幕位置與高度。
-        overlay.composeStrip(strip.get(), sy, currentHeight);
-        display.drawStrip(sy, currentHeight, strip.get());
+        overlay.composeStrip(activeStrip, sy, currentHeight);
+        composeTimeUs += micros() - composeStartedAt;
+
+        const uint32_t transferStartedAt = micros();
+        display.drawStrip(sy, currentHeight, activeStrip);
+        transferTimeUs += micros() - transferStartedAt;
         yield();
     }
+    const uint32_t finalTransferStartedAt = micros();
     display.endFrame();
+    transferTimeUs += micros() - finalTransferStartedAt;
+
+    // 每 20 幀列印一次平均值，避免 Serial 輸出干擾平常的拖曳流暢度。
+    // 輸入：本幀的合成、傳輸與總耗時，單位為微秒。
+    static uint32_t measuredFrameCount = 0;
+    static uint32_t accumulatedComposeUs = 0;
+    static uint32_t accumulatedTransferUs = 0;
+    static uint32_t accumulatedFrameUs = 0;
+    ++measuredFrameCount;
+    accumulatedComposeUs += composeTimeUs;
+    accumulatedTransferUs += transferTimeUs;
+    accumulatedFrameUs += micros() - frameStartedAt;
+    if (measuredFrameCount >= 20) {
+        const uint32_t averageComposeUs = accumulatedComposeUs / measuredFrameCount;
+        const uint32_t averageTransferUs = accumulatedTransferUs / measuredFrameCount;
+        const uint32_t averageFrameUs = accumulatedFrameUs / measuredFrameCount;
+        Serial.printf(
+            "[TileRenderer] 20 幀平均：合成 %lu.%03lu ms，TFT 傳輸 %lu.%03lu ms，總計 %lu.%03lu ms\n",
+            averageComposeUs / 1000, averageComposeUs % 1000,
+            averageTransferUs / 1000, averageTransferUs % 1000,
+            averageFrameUs / 1000, averageFrameUs % 1000
+        );
+        measuredFrameCount = 0;
+        accumulatedComposeUs = 0;
+        accumulatedTransferUs = 0;
+        accumulatedFrameUs = 0;
+    }
+
     lastCameraX = camera.x;
     lastCameraY = camera.y;
     hasLastCameraPosition = true;

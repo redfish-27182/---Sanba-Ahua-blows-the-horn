@@ -23,6 +23,7 @@ public:
     );
 
 private:
+    std::unique_ptr<uint16_t[]> nextStrip;
     int lastCameraX = 0;
     int lastCameraY = 0;
     bool hasLastCameraPosition = false;
