@@ -11,7 +11,7 @@ const pageThemes: Record<string, PageTheme> = {
     '/': { background: '#011627', foreground: '#fdfffc' },
     '/games': { background: '#ff9f1c', foreground: '#011627' },
     '/guide': { background: '#ff9f1c', foreground: '#011627' },
-    '/faq': { background: '#7f8b92', foreground: '#fdfffc' },
+    '/faq':   { background: '#7f8b92', foreground: '#fdfffc' },
     '/about': { background: '#2ec4b6', foreground: '#011627' },
     '/login': { background: '#97b269', foreground: '#fdfffc' },
 }

@@ -8,4 +8,3 @@ constexpr char MQTT_USERNAME[] = "your-username";
 constexpr char MQTT_PASSWORD[] = "your-password";
 
 // 同一台裝置應使用固定且唯一的 ID，供 MQTT 連線與狀態主題使用。
-constexpr char MQTT_DEVICE_ID[] = "ahou-esp32-01";

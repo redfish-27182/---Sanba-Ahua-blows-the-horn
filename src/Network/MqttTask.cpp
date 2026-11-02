@@ -2,6 +2,7 @@
 
 #include <WiFi.h>
 #include <cstring>
+#include <esp_mac.h>
 #include <freertos/event_groups.h>
 
 #include "App/AppMessages.h"
@@ -17,11 +18,27 @@ namespace {
 MqttTlsClient mqttClient;
 EventGroupHandle_t mqttStartupEvents = nullptr;
 char weatherTopic[APP_TOPIC_LENGTH]{};
+char mqttDeviceId[18]{};
 constexpr EventBits_t MQTT_INITIAL_SETUP_FINISHED = BIT0;
 constexpr EventBits_t MQTT_BOOT_WIFI_SCAN_REQUESTED = BIT1;
 
 // 連線失敗時依序等待 5、10、30、60 秒；不會因 Broker 暫時故障卡住整個系統。
 constexpr uint32_t RECONNECT_DELAYS_MS[] = {5000, 10000, 30000, 60000};
+
+// 讀取 ESP32 STA MAC，作為此設備固定的 MQTT 裝置 ID。
+// 輸出：mqttDeviceId，格式為 AA:BB:CC:DD:EE:FF。
+void initializeMqttDeviceId() {
+    uint8_t mac[6]{};
+    esp_read_mac(mac, ESP_MAC_WIFI_STA);
+
+    snprintf(
+        mqttDeviceId,
+        sizeof(mqttDeviceId),
+        "%02X:%02X:%02X:%02X:%02X:%02X",
+        mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]
+    );
+    Serial.printf("MQTT 裝置 ID（MAC）：%s\n", mqttDeviceId);
+}
 
 // MQTT callback 會在 mqttClient.loop() 被呼叫時觸發，並且在同一個 Task 內執行。
 void messageCallback(char *topic, byte *payload, unsigned int length) {
@@ -40,12 +57,12 @@ void messageCallback(char *topic, byte *payload, unsigned int length) {
 // 嘗試連線到 MQTT Broker，並訂閱必要的主題。
 bool connectAndSubscribe(char *statusTopic, size_t statusTopicLength) {
     snprintf(statusTopic, statusTopicLength, "%s%s%s", MQTT_DEVICE_STATUS_PREFIX,
-            MQTT_DEVICE_ID, MQTT_DEVICE_STATUS_SUFFIX);
+            mqttDeviceId, MQTT_DEVICE_STATUS_SUFFIX);
     snprintf(weatherTopic, sizeof(weatherTopic), "%s%s%s", MQTT_DEVICE_COMMAND_PREFIX,
-            MQTT_DEVICE_ID, MQTT_DEVICE_WEATHER_SUFFIX);
+            mqttDeviceId, MQTT_DEVICE_WEATHER_SUFFIX);
 
     // Last Will 為 retained offline：裝置異常斷線時 Broker 仍會替我們留下離線狀態。
-    if (!mqttClient.connect(MQTT_DEVICE_ID, MQTT_USERNAME, MQTT_PASSWORD, statusTopic, "offline")) {
+    if (!mqttClient.connect(mqttDeviceId, MQTT_USERNAME, MQTT_PASSWORD, statusTopic, "offline")) {
         Serial.printf("MQTT connect failed, state=%d\n", mqttClient.state());
         return false;
     }
@@ -93,7 +110,7 @@ bool publishBootWifiScan() {
         sizeof(topic),
         "%s%s%s",
         MQTT_DEVICE_STATUS_PREFIX,
-        MQTT_DEVICE_ID,
+        mqttDeviceId,
         MQTT_DEVICE_WIFI_SCAN_SUFFIX
     );
     if (!WifiScanner::writeLocationPayload(payload, sizeof(payload))) {
@@ -110,6 +127,7 @@ bool publishBootWifiScan() {
 
 // MQTT Task 的主函式。
 void mqttTask(void *) {
+    initializeMqttDeviceId();
     mqttClient.begin(MQTT_HOST, MQTT_PORT, messageCallback);
 
     bool clockSynchronized = false;       // 是否已經同步過時間，避免 TLS 驗證失敗
