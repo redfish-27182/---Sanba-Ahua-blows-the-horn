@@ -29,7 +29,20 @@ bool TileRenderer::draw(
         Serial.println("[TileRenderer] 還沒初始化ˇ");
         return false;
     }
-    for (int sy = 0; sy < SCREEN_HEIGHT; sy += stripHeight) {
+    const int cameraDeltaX = camera.x - lastCameraX;
+    const int cameraDeltaY = camera.y - lastCameraY;
+    const int absoluteDeltaX = cameraDeltaX < 0 ? -cameraDeltaX : cameraDeltaX;
+    const int absoluteDeltaY = cameraDeltaY < 0 ? -cameraDeltaY : cameraDeltaY;
+    // 鏡頭向下看時，新地圖內容從畫面底部進入；優先更新底部可減少撕裂感。
+    const bool drawBottomFirst = hasLastCameraPosition &&
+        absoluteDeltaY > absoluteDeltaX && cameraDeltaY > 0;
+    const int stripCount = (SCREEN_HEIGHT + stripHeight - 1) / stripHeight;
+
+    display.beginFrame();
+    for (int stripIndex = 0; stripIndex < stripCount; ++stripIndex) {
+        const int sy = drawBottomFirst
+            ? std::max(0, SCREEN_HEIGHT - (stripIndex + 1) * stripHeight)
+            : stripIndex * stripHeight;
         const int currentHeight = std::min(stripHeight, SCREEN_HEIGHT - sy);
         // 先清空緩衝區
         std::fill_n(strip.get(), stripWidth * stripHeight, uint16_t(0));
@@ -57,6 +70,7 @@ bool TileRenderer::draw(
                             const size_t tileInChunk = tileIndex % TILES_PER_PIXEL_CHUNK;
                             if (chunkIndex >= map.pixelChunks.size() || !map.pixelChunks[chunkIndex]) {
                                 Serial.println("[TileRenderer] tile pixel chunk is unavailable");
+                                display.endFrame();
                                 return false;
                             }
                             const uint8_t *tilePixels = map.pixelChunks[chunkIndex].get()
@@ -71,6 +85,7 @@ bool TileRenderer::draw(
                                     const uint8_t paletteIndex = tilePixels[y * 16 + x];
                                     if (paletteIndex >= map.palette.size()) {
                                         Serial.println("[TileRenderer] invalid tile palette index");
+                                        display.endFrame();
                                         return false;
                                     }
                                     const uint16_t color = map.palette[paletteIndex];
@@ -90,5 +105,9 @@ bool TileRenderer::draw(
         display.drawStrip(sy, currentHeight, strip.get());
         yield();
     }
+    display.endFrame();
+    lastCameraX = camera.x;
+    lastCameraY = camera.y;
+    hasLastCameraPosition = true;
     return true;
 }

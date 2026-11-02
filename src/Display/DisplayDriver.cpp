@@ -12,6 +12,18 @@ void DisplayDriver::showMessage(const char *message) {
 // 同步送出 RGB565 區塊，呼叫結束後可重用緩衝區。
 // y、height：int，畫面位置及高度；pixels：uint16_t*，像素資料。
 void DisplayDriver::drawStrip(int y, int height, uint16_t *pixels) {
-    tft.setSwapBytes(true);
     tft.pushImage(0, y, SCREEN_WIDTH, height, pixels);
+}
+
+// 開始一幀條帶繪製，讓後續 pushImage 共用同一次 SPI transaction。
+// 輸入：無。
+void DisplayDriver::beginFrame() {
+    tft.setSwapBytes(true);
+    tft.startWrite();
+}
+
+// 結束一幀條帶繪製，釋放 TFT 使用中的 SPI transaction。
+// 輸入：無。
+void DisplayDriver::endFrame() {
+    tft.endWrite();
 }

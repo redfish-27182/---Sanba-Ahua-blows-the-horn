@@ -15,6 +15,14 @@ public:
     // y、height：int，畫面位置及高度；pixels：uint16_t*，畫面寬度的資料；
     void drawStrip(int y, int height, uint16_t *pixels);
 
+    // 開始一個完整畫面傳輸，避免每條 strip 重複開關 SPI transaction。
+    // 輸入：無。
+    void beginFrame();
+
+    // 結束完整畫面傳輸並釋放 TFT 的 SPI transaction。
+    // 輸入：無。
+    void endFrame();
+
 private:
     TFT_eSPI &tft;
 };
