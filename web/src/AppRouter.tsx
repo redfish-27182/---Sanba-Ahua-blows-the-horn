@@ -4,6 +4,8 @@ import BackendAdminPage from './pages/BackendAdminPage'
 import EmptyPage from './pages/EmptyPage'
 import FaqPage from './pages/FaqPage'
 import HomePage from './pages/HomePage'
+import LoginPage from './pages/LoginPage'
+import RegisterPage from './pages/RegisterPage'
 import NotFoundPage from './pages/NotFoundPage'
 import ArticleEditorPage from './pages/ArticleEditorPage'
 
@@ -18,7 +20,8 @@ function AppRouter() {
                 <Route path="faq" element={<Navigate to="/faq/getting-started" replace />} />
                 <Route path="faq/:articleSlug" element={<FaqPage />} />
                 <Route path="about" element={<EmptyPage />} />
-                <Route path="login" element={<EmptyPage />} />
+                <Route path="login" element={<LoginPage />} />
+                <Route path="register" element={<RegisterPage />} />
                 {import.meta.env.DEV && <Route path="editor" element={<ArticleEditorPage />} />}
                 <Route path="*" element={<NotFoundPage />} />
             </Route>

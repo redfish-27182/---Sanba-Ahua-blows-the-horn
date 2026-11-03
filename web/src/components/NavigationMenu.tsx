@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { BookOpen, Gamepad2, Info, LogIn, Search, X } from 'lucide-react'
+import { BookOpen, Gamepad2, Info, LogIn, LogOut, Search, X } from 'lucide-react'
 import { Link, NavLink } from 'react-router'
+import { useAuth } from '../features/auth/AuthProvider'
 
 const navigationItems = [
     { label: '遊戲', to: '/games', icon: Gamepad2 },
@@ -10,11 +11,11 @@ const navigationItems = [
 
 type SearchVisibility = 'closed' | 'open' | 'closing'
 
-/** The primary, horizontal site navigation. */
 export default function NavigationMenu() {
     const [hasScrolled, setHasScrolled] = useState(false)
     const [searchVisibility, setSearchVisibility] = useState<SearchVisibility>('closed')
     const searchInputRef = useRef<HTMLInputElement>(null)
+    const { user, signOut } = useAuth()
 
     useEffect(() => {
         const updateScrolledState = () => setHasScrolled(window.scrollY > 0)
@@ -46,8 +47,8 @@ export default function NavigationMenu() {
             <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-1 py-3 sm:px-3">
                 <Link
                     to="/"
-                    className="shrink-0 rounded-md px-1 py-1 font-black tracking-tight
-                            transition-opacity hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                    className="shrink-0 rounded-md px-1 py-1 font-black tracking-tight transition-opacity hover:opacity-85
+                            focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                 >
                     <span className="text-3xl text-white font-bold sm:text-3xl">三八阿花</span>
                     <span className="ml-1 text-sm text-white/75 sm:text-base">官方網站</span>
@@ -98,6 +99,7 @@ export default function NavigationMenu() {
                     </button>
                 )}
 
+                {/* 導航組件 */}
                 {navigationItems.map(({ label, to, icon: Icon }) => (
                     <NavLink
                         key={to}
@@ -113,18 +115,32 @@ export default function NavigationMenu() {
                     </NavLink>
                 ))}
 
+                {/* 登入/登出按鈕 */}
+                {user === null ? (
                 <NavLink
                     to="/login"
                     className={({ isActive }) => `inline-flex items-center gap-1.5 rounded-full bg-emerald-400 px-5 py-2
                             text-sm font-bold tracking-tight text-emerald-950 shadow-md
                             transition-transform hover:-translate-y-px hover:bg-emerald-300
-                            focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:text-xl ${
-                        isActive ? 'ring-2 ring-white/90 ring-offset-2 ring-offset-transparent' : ''
-                    }`}
+                            focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:text-xl
+                            ${ isActive ? 'ring-2 ring-white/90 ring-offset-2 ring-offset-transparent' : ''}`
+                        }
                 >
                     <LogIn size={18} strokeWidth={2.8} aria-hidden="true" />
                     <span>登入</span>
                 </NavLink>
+                ) : (
+                    <button
+                        type="button"
+                        onClick={() => void signOut()}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400 px-5 py-2
+                                text-sm font-bold tracking-tight text-emerald-950 shadow-md transition-transform hover:-translate-y-px hover:bg-emerald-300
+                                focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:text-xl"
+                    >
+                        <LogOut size={18} strokeWidth={2.8} aria-hidden="true" />
+                        <span>登出</span>
+                    </button>
+                )}
                     </nav>
             </div>
         </header>

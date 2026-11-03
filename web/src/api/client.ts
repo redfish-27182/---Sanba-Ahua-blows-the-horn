@@ -1,9 +1,11 @@
 import axios from 'axios'
 
-// 網址可透過 VITE_API_BASE_URL 設定；前端環境變數不可存放密碼。
+export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : '/api')
+
 const apiClient = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : undefined),
+    baseURL: apiBaseUrl,
     timeout: 10000,
+    withCredentials: true,
 })
 
 export default apiClient
