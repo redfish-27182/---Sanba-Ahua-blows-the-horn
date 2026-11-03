@@ -9,7 +9,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.article_api import router as articles_router
-from app.config.settings import LOCAL_ORIGINS
+from app.api.auth_api import router as auth_router
+from app.config.settings import settings
 from app.mqtt.client import MqttClient
 from app.services.firmware_service import publish_firmware_version
 from app.tasks.weather_refresh_task import WeatherRefreshTask
@@ -83,8 +84,10 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="SanBa_Ahou Backend", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=LOCAL_ORIGINS,
-    allow_methods=["GET", "PUT"],
+    allow_origins=settings.allowed_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type"],
 )
+app.include_router(auth_router)
 app.include_router(articles_router)

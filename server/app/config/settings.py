@@ -1,4 +1,4 @@
-"""集中從 .env 讀取本機設定；密碼不應直接寫在程式碼中。"""
+"""應用程式環境設定。"""
 
 from pathlib import Path
 from urllib.parse import quote_plus
@@ -6,13 +6,11 @@ from urllib.parse import quote_plus
 from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# 本機前端來源，供 CORS 與文章編輯權限檢查共用。
+
 LOCAL_ORIGINS = ("http://localhost:5173", "http://127.0.0.1:5173")
 
 
 class Settings(BaseSettings):
-    """後端使用的資料庫與 MQTT 設定。"""
-
     model_config = SettingsConfigDict(
         env_file=Path(__file__).resolve().parents[2] / ".env",
         env_file_encoding="utf-8",
@@ -25,10 +23,7 @@ class Settings(BaseSettings):
     database_user: str = "sanba_app"
     database_password: str = ""
 
-    # 未完成管理員驗證前，文章寫入預設關閉；只供本機開發使用。
     article_edit_enabled: bool = False
-
-    # Google Geolocation API 金鑰只應存在本機 .env，不能放進 ESP32、前端或 Git。
     google_geolocation_api_key: SecretStr | None = None
     weatherapi_api_key: SecretStr | None = None
 
@@ -40,23 +35,39 @@ class Settings(BaseSettings):
     mqtt_ca_cert_path: Path | None = None
     mqtt_client_id: str = "sanba-backend"
 
+    frontend_url: str = "http://localhost:5173"
+    cors_origins: str = ",".join(LOCAL_ORIGINS)
+    auth_session_cookie_name: str = "sanba_session"
+    auth_cookie_secure: bool = False
+    auth_session_ttl_days: int = 30
+
     @field_validator("mqtt_ca_cert_path", mode="before")
     @classmethod
     def empty_mqtt_ca_cert_path_is_none(cls, value: object) -> object:
-        """避免空字串被 Path 轉成目前資料夾 WindowsPath('.')。"""
-
         if isinstance(value, str) and not value.strip():
             return None
         return value
 
     @property
     def database_url(self) -> str:
-        """組成 SQLAlchemy 使用的 PostgreSQL 連線字串，並安全處理特殊字元密碼。"""
         password = quote_plus(self.database_password)
         return (
             f"postgresql+psycopg://{self.database_user}:{password}"
             f"@{self.database_host}:{self.database_port}/{self.database_name}"
         )
+
+    @property
+    def allowed_origins(self) -> tuple[str, ...]:
+        configured_origins = tuple(
+            origin.strip().rstrip("/")
+            for origin in self.cors_origins.split(",")
+            if origin.strip()
+        )
+        return tuple(dict.fromkeys((*LOCAL_ORIGINS, self.frontend_url.rstrip("/"), *configured_origins)))
+
+    @property
+    def auth_session_ttl_seconds(self) -> int:
+        return self.auth_session_ttl_days * 24 * 60 * 60
 
 
 settings = Settings()
